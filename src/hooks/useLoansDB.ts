@@ -1,0 +1,186 @@
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './useAuth';
+import { toast } from 'sonner';
+
+export interface DBLoan {
+  id: string;
+  user_id: string;
+  customer_id: string | null;
+  borrower_name: string;
+  amount: number;
+  loan_date: string;
+  due_date: string;
+  payment_method: string;
+  notes: string | null;
+  installments: number;
+  status: string;
+  payments: DBPayment[];
+}
+
+export interface DBPayment {
+  id: string;
+  loan_id: string;
+  amount: number;
+  date: string;
+}
+
+function computeStatus(amount: number, totalPaid: number, dueDate: string): string {
+  if (totalPaid >= amount) return 'pago';
+  const now = new Date();
+  const due = new Date(dueDate);
+  if (totalPaid > 0 && totalPaid < amount) {
+    return now > due ? 'atrasado' : 'parcial';
+  }
+  return now > due ? 'atrasado' : 'em_dia';
+}
+
+export function useLoansDB() {
+  const { user } = useAuth();
+  const [loans, setLoans] = useState<DBLoan[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchLoans = useCallback(async () => {
+    if (!user) return;
+    const { data: loansData, error: loansError } = await supabase
+      .from('loans')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (loansError) {
+      toast.error('Erro ao carregar empréstimos');
+      console.error(loansError);
+      setLoading(false);
+      return;
+    }
+
+    const { data: paymentsData, error: paymentsError } = await supabase
+      .from('payments')
+      .select('*')
+      .order('date', { ascending: true });
+
+    if (paymentsError) {
+      console.error(paymentsError);
+    }
+
+    const paymentsByLoan = new Map<string, DBPayment[]>();
+    (paymentsData || []).forEach(p => {
+      const list = paymentsByLoan.get(p.loan_id) || [];
+      list.push({ id: p.id, loan_id: p.loan_id, amount: p.amount, date: p.date });
+      paymentsByLoan.set(p.loan_id, list);
+    });
+
+    const enriched: DBLoan[] = (loansData || []).map(l => ({
+      ...l,
+      payments: paymentsByLoan.get(l.id) || [],
+    }));
+
+    setLoans(enriched);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    fetchLoans();
+  }, [fetchLoans]);
+
+  const addLoan = useCallback(async (data: {
+    borrowerName: string;
+    amount: number;
+    loanDate: string;
+    dueDate: string;
+    paymentMethod: string;
+    notes: string;
+    installments: number;
+    customerId?: string;
+  }) => {
+    if (!user) return;
+    const { error } = await supabase.from('loans').insert({
+      user_id: user.id,
+      customer_id: data.customerId || null,
+      borrower_name: data.borrowerName,
+      amount: data.amount,
+      loan_date: data.loanDate,
+      due_date: data.dueDate,
+      payment_method: data.paymentMethod,
+      notes: data.notes,
+      installments: data.installments,
+      status: 'em_dia',
+    });
+    if (error) {
+      toast.error('Erro ao salvar empréstimo');
+      console.error(error);
+    } else {
+      toast.success('Empréstimo salvo!');
+      await fetchLoans();
+    }
+  }, [user, fetchLoans]);
+
+  const deleteLoan = useCallback(async (id: string) => {
+    if (!user) return;
+    const { error } = await supabase.from('loans').delete().eq('id', id);
+    if (error) {
+      toast.error('Erro ao excluir empréstimo');
+    } else {
+      toast.success('Empréstimo excluído!');
+      await fetchLoans();
+    }
+  }, [user, fetchLoans]);
+
+  const addPayment = useCallback(async (loanId: string, amount: number) => {
+    if (!user) return;
+    const { error } = await supabase.from('payments').insert({
+      loan_id: loanId,
+      user_id: user.id,
+      amount,
+      date: new Date().toISOString().split('T')[0],
+    });
+    if (error) {
+      toast.error('Erro ao registrar pagamento');
+      console.error(error);
+      return;
+    }
+
+    // Update loan status
+    const loan = loans.find(l => l.id === loanId);
+    if (loan) {
+      const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0) + amount;
+      const newStatus = computeStatus(loan.amount, totalPaid, loan.due_date);
+      await supabase.from('loans').update({ status: newStatus }).eq('id', loanId);
+    }
+
+    toast.success('Pagamento registrado!');
+    await fetchLoans();
+  }, [user, loans, fetchLoans]);
+
+  const markAsPaid = useCallback(async (loanId: string) => {
+    if (!user) return;
+    const loan = loans.find(l => l.id === loanId);
+    if (!loan) return;
+
+    const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0);
+    const remaining = loan.amount - totalPaid;
+
+    if (remaining > 0) {
+      await supabase.from('payments').insert({
+        loan_id: loanId,
+        user_id: user.id,
+        amount: remaining,
+        date: new Date().toISOString().split('T')[0],
+      });
+    }
+
+    await supabase.from('loans').update({ status: 'pago' }).eq('id', loanId);
+    toast.success('Empréstimo marcado como pago!');
+    await fetchLoans();
+  }, [user, loans, fetchLoans]);
+
+  const stats = useMemo(() => {
+    const totalLent = loans.reduce((s, l) => s + l.amount, 0);
+    const totalReceived = loans.reduce((s, l) => s + l.payments.reduce((ps, p) => ps + p.amount, 0), 0);
+    const totalPending = totalLent - totalReceived;
+    const overdue = loans.filter(l => l.status === 'atrasado').length;
+    return { totalLent, totalReceived, totalPending, overdue };
+  }, [loans]);
+
+  return { loans, loading, stats, addLoan, deleteLoan, addPayment, markAsPaid, refetch: fetchLoans };
+}
