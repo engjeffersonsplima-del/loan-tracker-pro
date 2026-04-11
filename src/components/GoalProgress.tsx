@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Target } from 'lucide-react';
 
@@ -16,22 +16,22 @@ export function GoalProgress({ target, received }: GoalProgressProps) {
   const pct = Math.min(100, Math.round((received / target) * 100));
 
   return (
-    <Card className="border-border">
-      <CardHeader className="pb-2 p-4">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Target className="h-4 w-4 text-primary" />
-          Meta do Mês
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 pt-0">
-        <div className="flex justify-between text-xs text-muted-foreground mb-2">
-          <span>{formatCurrency(received)} recebido</span>
-          <span>{pct}%</span>
+    <Card className="border-border/50 shadow-sm">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Target className="h-3.5 w-3.5 text-primary" />
+            </div>
+            <span className="text-sm font-semibold text-foreground">Meta do Mês</span>
+          </div>
+          <span className="text-xs font-bold text-primary">{pct}%</span>
         </div>
-        <Progress value={pct} className="h-2" />
-        <p className="text-xs text-muted-foreground mt-2">
-          Meta: {formatCurrency(target)}
-        </p>
+        <Progress value={pct} className="h-2 mb-2" />
+        <div className="flex justify-between text-[11px] text-muted-foreground">
+          <span>{formatCurrency(received)} recebido</span>
+          <span>Meta: {formatCurrency(target)}</span>
+        </div>
       </CardContent>
     </Card>
   );
