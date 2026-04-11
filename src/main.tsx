@@ -2,5 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-const root = createRoot(document.getElementById("root")!);
+// Initialize app
+const rootEl = document.getElementById("root")!;
+const root = createRoot(rootEl);
 root.render(<App />);
