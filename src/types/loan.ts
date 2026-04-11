@@ -1,0 +1,25 @@
+export type LoanStatus = 'em_dia' | 'atrasado' | 'pago' | 'parcial';
+
+export interface Payment {
+  id: string;
+  amount: number;
+  date: string;
+}
+
+export interface Loan {
+  id: string;
+  borrowerName: string;
+  amount: number;
+  loanDate: string;
+  dueDate: string;
+  paymentMethod: string;
+  notes: string;
+  status: LoanStatus;
+  installments: number;
+  payments: Payment[];
+}
+
+export interface MonthlyGoal {
+  month: string;
+  target: number;
+}
