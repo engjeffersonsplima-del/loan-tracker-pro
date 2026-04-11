@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { useLoans } from '@/hooks/useLoans';
+import { useLoansDB, DBLoan } from '@/hooks/useLoansDB';
+import { useCustomers, Customer } from '@/hooks/useCustomers';
+import { useScheduledMessages } from '@/hooks/useScheduledMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { StatsCards } from '@/components/StatsCards';
 import { GoalProgress } from '@/components/GoalProgress';
@@ -7,34 +9,51 @@ import { LoanChart } from '@/components/LoanChart';
 import { LoanList } from '@/components/LoanList';
 import { LoanDetail } from '@/components/LoanDetail';
 import { NewLoanForm } from '@/components/NewLoanForm';
-import { GoalSettings } from '@/components/GoalSettings';
+import { CustomerForm } from '@/components/CustomerForm';
+import { CustomerList } from '@/components/CustomerList';
+import { CustomerDetail } from '@/components/CustomerDetail';
+import { ScheduledMessageForm } from '@/components/ScheduledMessageForm';
+import { ScheduledMessageList } from '@/components/ScheduledMessageList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loan } from '@/types/loan';
-import { Plus, Home, List, Target, Search, LogOut, DollarSign } from 'lucide-react';
+import { Plus, Home, List, Users, MessageCircle, Search, LogOut, DollarSign } from 'lucide-react';
 
-type View = 'dashboard' | 'loans' | 'goals' | 'new' | 'detail';
+type View = 'dashboard' | 'loans' | 'customers' | 'messages' | 'new-loan' | 'loan-detail' | 'new-customer' | 'customer-detail' | 'new-message';
 
 export default function Index() {
-  const {
-    loans, stats, currentMonthGoal, currentMonthReceived,
-    addLoan, deleteLoan, addPayment, markAsPaid, setMonthlyGoal,
-  } = useLoans();
+  const { loans: dbLoans, stats, addLoan, deleteLoan, addPayment, markAsPaid } = useLoansDB();
+  const { customers, addCustomer, deleteCustomer, uploadPhoto } = useCustomers();
+  const { messages, addMessage, toggleStatus, deleteMessage, sendWhatsApp } = useScheduledMessages();
   const { signOut } = useAuth();
 
   const [view, setView] = useState<View>('dashboard');
-  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [selectedLoanId, setSelectedLoanId] = useState<string | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [filter, setFilter] = useState('todos');
   const [search, setSearch] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
+
+  // Convert DB loans to the Loan type used by existing components
+  const loans: Loan[] = dbLoans.map(l => ({
+    id: l.id,
+    borrowerName: l.borrower_name,
+    amount: l.amount,
+    loanDate: l.loan_date,
+    dueDate: l.due_date,
+    paymentMethod: l.payment_method,
+    notes: l.notes || '',
+    status: l.status as any,
+    installments: l.installments,
+    payments: l.payments.map(p => ({ id: p.id, amount: p.amount, date: p.date })),
+  }));
+
+  const selectedLoan = loans.find(l => l.id === selectedLoanId) || null;
+  const overdueLoans = loans.filter(l => l.status === 'atrasado');
 
   const handleSelectLoan = (loan: Loan) => {
-    setSelectedLoan(loan);
-    setView('detail');
-  };
-
-  const handleBack = () => {
-    setView('dashboard');
-    setSelectedLoan(null);
+    setSelectedLoanId(loan.id);
+    setView('loan-detail');
   };
 
   const handleSaveLoan = (data: Parameters<typeof addLoan>[0]) => {
@@ -42,21 +61,30 @@ export default function Index() {
     setView('loans');
   };
 
-  const handleDelete = (id: string) => {
+  const handleDeleteLoan = (id: string) => {
     deleteLoan(id);
     setView('loans');
   };
 
-  const currentLoan = selectedLoan ? loans.find(l => l.id === selectedLoan.id) || selectedLoan : null;
-  const overdueLoans = loans.filter(l => l.status === 'atrasado');
+  const handleSelectCustomer = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setView('customer-detail');
+  };
+
+  const handleDeleteCustomer = (id: string) => {
+    deleteCustomer(id);
+    setView('customers');
+  };
+
+  // Simple goal state (kept in memory for now)
+  const currentMonthGoal = { month: '', target: 0 };
+  const currentMonthReceived = 0;
 
   return (
     <div className="min-h-screen bg-background flex flex-col max-w-lg mx-auto">
-      {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-5 pb-24">
         {view === 'dashboard' && (
           <div className="space-y-5">
-            {/* Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
@@ -71,7 +99,7 @@ export default function Index() {
                 <Button size="icon" variant="ghost" onClick={signOut} className="rounded-xl text-muted-foreground">
                   <LogOut className="h-4 w-4" />
                 </Button>
-                <Button size="icon" onClick={() => setView('new')} className="rounded-xl shadow-sm">
+                <Button size="icon" onClick={() => setView('new-loan')} className="rounded-xl shadow-sm">
                   <Plus className="h-5 w-5" />
                 </Button>
               </div>
@@ -96,76 +124,104 @@ export default function Index() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-foreground">Empréstimos</h2>
-              <Button size="icon" onClick={() => setView('new')} className="rounded-xl shadow-sm">
+              <Button size="icon" onClick={() => setView('new-loan')} className="rounded-xl shadow-sm">
                 <Plus className="h-5 w-5" />
               </Button>
             </div>
-
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-9 h-11 rounded-xl"
-              />
+              <Input placeholder="Buscar por nome..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-11 rounded-xl" />
             </div>
-
             <div className="flex gap-2 overflow-x-auto pb-1">
               {['todos', 'em_dia', 'atrasado', 'parcial', 'pago'].map(f => (
-                <Button
-                  key={f}
-                  variant={filter === f ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setFilter(f)}
-                  className="text-xs whitespace-nowrap rounded-lg"
-                >
+                <Button key={f} variant={filter === f ? 'default' : 'outline'} size="sm" onClick={() => setFilter(f)} className="text-xs whitespace-nowrap rounded-lg">
                   {f === 'todos' ? 'Todos' : f === 'em_dia' ? 'Em dia' : f === 'atrasado' ? 'Atrasado' : f === 'parcial' ? 'Parcial' : 'Pago'}
                 </Button>
               ))}
             </div>
-
             <LoanList loans={loans} onSelect={handleSelectLoan} filter={filter} search={search} />
           </div>
         )}
 
-        {view === 'new' && (
-          <NewLoanForm onSave={handleSaveLoan} onBack={handleBack} />
+        {view === 'customers' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-foreground">Clientes</h2>
+              <Button size="icon" onClick={() => setView('new-customer')} className="rounded-xl shadow-sm">
+                <Plus className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Buscar cliente..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} className="pl-9 h-11 rounded-xl" />
+            </div>
+            <CustomerList customers={customers} onSelect={handleSelectCustomer} search={customerSearch} />
+          </div>
         )}
 
-        {view === 'detail' && currentLoan && (
+        {view === 'messages' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-foreground">Mensagens</h2>
+              <Button size="icon" onClick={() => setView('new-message')} className="rounded-xl shadow-sm">
+                <Plus className="h-5 w-5" />
+              </Button>
+            </div>
+            <ScheduledMessageList messages={messages} onToggle={toggleStatus} onDelete={deleteMessage} onSendNow={sendWhatsApp} />
+          </div>
+        )}
+
+        {view === 'new-loan' && (
+          <NewLoanForm onSave={handleSaveLoan} onBack={() => setView('dashboard')} />
+        )}
+
+        {view === 'loan-detail' && selectedLoan && (
           <LoanDetail
-            loan={currentLoan}
+            loan={selectedLoan}
             onBack={() => setView('loans')}
             onAddPayment={addPayment}
             onMarkPaid={markAsPaid}
-            onDelete={handleDelete}
+            onDelete={handleDeleteLoan}
           />
         )}
 
-        {view === 'goals' && (
-          <GoalSettings
-            currentGoal={currentMonthGoal}
-            currentReceived={currentMonthReceived}
-            onSetGoal={setMonthlyGoal}
-            onBack={handleBack}
+        {view === 'new-customer' && (
+          <CustomerForm onSave={addCustomer} onUploadPhoto={uploadPhoto} onBack={() => setView('customers')} />
+        )}
+
+        {view === 'customer-detail' && selectedCustomer && (
+          <CustomerDetail
+            customer={selectedCustomer}
+            onBack={() => setView('customers')}
+            onDelete={handleDeleteCustomer}
+            onWhatsApp={sendWhatsApp}
+          />
+        )}
+
+        {view === 'new-message' && (
+          <ScheduledMessageForm
+            customers={customers}
+            loans={dbLoans}
+            onSave={addMessage}
+            onBack={() => setView('messages')}
           />
         )}
       </div>
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-md border-t border-border/50 z-50">
-        <div className="max-w-lg mx-auto flex justify-around py-2 px-2">
+        <div className="max-w-lg mx-auto flex justify-around py-2 px-1">
           {[
             { key: 'dashboard' as View, icon: Home, label: 'Início' },
             { key: 'loans' as View, icon: List, label: 'Empréstimos' },
-            { key: 'goals' as View, icon: Target, label: 'Metas' },
+            { key: 'customers' as View, icon: Users, label: 'Clientes' },
+            { key: 'messages' as View, icon: MessageCircle, label: 'Mensagens' },
           ].map(item => (
             <button
               key={item.key}
               onClick={() => setView(item.key)}
-              className={`flex flex-col items-center gap-0.5 px-5 py-1.5 rounded-xl transition-all ${
-                view === item.key
+              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${
+                view === item.key || (item.key === 'loans' && view === 'loan-detail') || (item.key === 'customers' && view === 'customer-detail')
                   ? 'text-primary bg-primary/10'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
