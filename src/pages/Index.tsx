@@ -19,10 +19,10 @@ import { Input } from '@/components/ui/input';
 import { Loan } from '@/types/loan';
 import { Plus, Home, List, Users, MessageCircle, Search, LogOut, DollarSign } from 'lucide-react';
 
-type View = 'dashboard' | 'loans' | 'customers' | 'messages' | 'new-loan' | 'loan-detail' | 'new-customer' | 'customer-detail' | 'new-message';
+type View = 'dashboard' | 'loans' | 'customers' | 'messages' | 'new-loan' | 'loan-detail' | 'edit-loan' | 'new-customer' | 'customer-detail' | 'new-message';
 
 export default function Index() {
-  const { loans: dbLoans, stats, addLoan, deleteLoan, addPayment, markAsPaid } = useLoansDB();
+  const { loans: dbLoans, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid } = useLoansDB();
   const { customers, addCustomer, deleteCustomer, uploadPhoto } = useCustomers();
   const { messages, addMessage, toggleStatus, deleteMessage, sendWhatsApp } = useScheduledMessages();
   const { signOut } = useAuth();
@@ -45,6 +45,8 @@ export default function Index() {
     notes: l.notes || '',
     status: l.status as any,
     installments: l.installments,
+    interestRate: l.interest_rate,
+    lateInterestRate: l.late_interest_rate,
     payments: l.payments.map(p => ({ id: p.id, amount: p.amount, date: p.date })),
   }));
 
@@ -64,6 +66,18 @@ export default function Index() {
   const handleDeleteLoan = (id: string) => {
     deleteLoan(id);
     setView('loans');
+  };
+
+  const handleEditLoan = (loan: Loan) => {
+    setSelectedLoanId(loan.id);
+    setView('edit-loan');
+  };
+
+  const handleUpdateLoan = (data: Parameters<typeof updateLoan>[1]) => {
+    if (selectedLoanId) {
+      updateLoan(selectedLoanId, data);
+      setView('loans');
+    }
   };
 
   const handleSelectCustomer = (customer: Customer) => {
@@ -182,6 +196,15 @@ export default function Index() {
             onAddPayment={addPayment}
             onMarkPaid={markAsPaid}
             onDelete={handleDeleteLoan}
+            onEdit={handleEditLoan}
+          />
+        )}
+
+        {view === 'edit-loan' && selectedLoan && (
+          <NewLoanForm
+            onSave={handleUpdateLoan}
+            onBack={() => setView('loan-detail')}
+            editLoan={selectedLoan}
           />
         )}
 
