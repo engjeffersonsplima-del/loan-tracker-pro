@@ -5,7 +5,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Calculator, CreditCard, Calendar } from 'lucide-react';
+import { ArrowLeft, Calculator, CreditCard, Calendar, Percent } from 'lucide-react';
+
+import { Loan } from '@/types/loan';
 
 interface NewLoanFormProps {
   onSave: (data: {
@@ -16,29 +18,36 @@ interface NewLoanFormProps {
     paymentMethod: string;
     notes: string;
     installments: number;
+    interestRate?: number;
+    lateInterestRate?: number;
   }) => void;
   onBack: () => void;
+  editLoan?: Loan;
 }
 
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function NewLoanForm({ onSave, onBack }: NewLoanFormProps) {
-  const [name, setName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [loanDate, setLoanDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dueDate, setDueDate] = useState('');
-  const [method, setMethod] = useState('pix');
-  const [notes, setNotes] = useState('');
-  const [installments, setInstallments] = useState('1');
+export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
+  const [name, setName] = useState(editLoan?.borrowerName || '');
+  const [amount, setAmount] = useState(editLoan ? String(editLoan.amount) : '');
+  const [loanDate, setLoanDate] = useState(editLoan?.loanDate || new Date().toISOString().split('T')[0]);
+  const [dueDate, setDueDate] = useState(editLoan?.dueDate || '');
+  const [method, setMethod] = useState(editLoan?.paymentMethod || 'pix');
+  const [notes, setNotes] = useState(editLoan?.notes || '');
+  const [installments, setInstallments] = useState(editLoan ? String(editLoan.installments) : '1');
+  const [interestRate, setInterestRate] = useState(editLoan ? String(editLoan.interestRate) : '0');
+  const [lateInterestRate, setLateInterestRate] = useState(editLoan ? String(editLoan.lateInterestRate) : '0');
 
   const preview = useMemo(() => {
     const total = parseFloat(amount) || 0;
     const parcelas = parseInt(installments) || 1;
-    const valorParcela = parcelas > 0 ? total / parcelas : 0;
-    return { total, parcelas, valorParcela };
-  }, [amount, installments]);
+    const rate = parseFloat(interestRate) || 0;
+    const totalWithInterest = total * (1 + rate / 100);
+    const valorParcela = parcelas > 0 ? totalWithInterest / parcelas : 0;
+    return { total, parcelas, valorParcela, totalWithInterest, rate };
+  }, [amount, installments, interestRate]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,6 +60,8 @@ export function NewLoanForm({ onSave, onBack }: NewLoanFormProps) {
       paymentMethod: method,
       notes,
       installments: parseInt(installments) || 1,
+      interestRate: parseFloat(interestRate) || 0,
+      lateInterestRate: parseFloat(lateInterestRate) || 0,
     });
   };
 
@@ -61,8 +72,8 @@ export function NewLoanForm({ onSave, onBack }: NewLoanFormProps) {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h2 className="text-lg font-bold text-foreground">Novo Empréstimo</h2>
-          <p className="text-xs text-muted-foreground">Preencha os dados abaixo</p>
+          <h2 className="text-lg font-bold text-foreground">{editLoan ? 'Editar Empréstimo' : 'Novo Empréstimo'}</h2>
+          <p className="text-xs text-muted-foreground">{editLoan ? 'Altere os dados abaixo' : 'Preencha os dados abaixo'}</p>
         </div>
       </div>
 
@@ -113,6 +124,22 @@ export function NewLoanForm({ onSave, onBack }: NewLoanFormProps) {
           </div>
         </div>
 
+        {/* Juros */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="interestRate" className="text-xs font-medium flex items-center gap-1">
+              <Percent className="h-3 w-3" /> Juros (%)
+            </Label>
+            <Input id="interestRate" type="number" step="0.1" min="0" value={interestRate} onChange={e => setInterestRate(e.target.value)} placeholder="0" className="h-11 rounded-xl" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="lateInterestRate" className="text-xs font-medium flex items-center gap-1">
+              <Percent className="h-3 w-3 text-destructive" /> Juros atraso (%)
+            </Label>
+            <Input id="lateInterestRate" type="number" step="0.1" min="0" value={lateInterestRate} onChange={e => setLateInterestRate(e.target.value)} placeholder="0" className="h-11 rounded-xl" />
+          </div>
+        </div>
+
         {/* Preview de parcelas */}
         {preview.total > 0 && (
           <Card className="border-primary/20 bg-primary/5">
@@ -121,16 +148,20 @@ export function NewLoanForm({ onSave, onBack }: NewLoanFormProps) {
                 <Calculator className="h-4 w-4 text-primary" />
                 <span className="text-sm font-semibold text-foreground">Resumo</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <div className="text-center p-2 bg-background rounded-lg">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Valor da Parcela</p>
-                  <p className="text-base font-bold text-primary">{formatCurrency(preview.valorParcela)}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Parcela</p>
+                  <p className="text-sm font-bold text-primary">{formatCurrency(preview.valorParcela)}</p>
                   <p className="text-[10px] text-muted-foreground">{preview.parcelas}x</p>
                 </div>
                 <div className="text-center p-2 bg-background rounded-lg">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Valor Total</p>
-                  <p className="text-base font-bold text-foreground">{formatCurrency(preview.total)}</p>
-                  <p className="text-[10px] text-muted-foreground">até o vencimento</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total + Juros</p>
+                  <p className="text-sm font-bold text-foreground">{formatCurrency(preview.totalWithInterest)}</p>
+                  <p className="text-[10px] text-muted-foreground">{preview.rate}%</p>
+                </div>
+                <div className="text-center p-2 bg-background rounded-lg">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Emprestado</p>
+                  <p className="text-sm font-bold text-muted-foreground">{formatCurrency(preview.total)}</p>
                 </div>
               </div>
             </CardContent>
@@ -143,7 +174,7 @@ export function NewLoanForm({ onSave, onBack }: NewLoanFormProps) {
         </div>
 
         <Button type="submit" className="w-full h-12 rounded-xl text-sm font-semibold">
-          Salvar Empréstimo
+          {editLoan ? 'Atualizar Empréstimo' : 'Salvar Empréstimo'}
         </Button>
       </form>
     </div>
