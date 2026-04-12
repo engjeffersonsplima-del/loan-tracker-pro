@@ -174,7 +174,7 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
         </div>
 
         <Button type="submit" className="w-full h-12 rounded-xl text-sm font-semibold">
-          Salvar Empréstimo
+          {editLoan ? 'Atualizar Empréstimo' : 'Salvar Empréstimo'}
         </Button>
       </form>
     </div>
