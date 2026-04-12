@@ -15,6 +15,8 @@ export interface DBLoan {
   notes: string | null;
   installments: number;
   status: string;
+  interest_rate: number;
+  late_interest_rate: number;
   payments: DBPayment[];
 }
 
@@ -92,6 +94,8 @@ export function useLoansDB() {
     notes: string;
     installments: number;
     customerId?: string;
+    interestRate?: number;
+    lateInterestRate?: number;
   }) => {
     if (!user) return;
     const { error } = await supabase.from('loans').insert({
@@ -105,6 +109,8 @@ export function useLoansDB() {
       notes: data.notes,
       installments: data.installments,
       status: 'em_dia',
+      interest_rate: data.interestRate || 0,
+      late_interest_rate: data.lateInterestRate || 0,
     });
     if (error) {
       toast.error('Erro ao salvar empréstimo');
@@ -182,5 +188,37 @@ export function useLoansDB() {
     return { totalLent, totalReceived, totalPending, overdue };
   }, [loans]);
 
-  return { loans, loading, stats, addLoan, deleteLoan, addPayment, markAsPaid, refetch: fetchLoans };
+  const updateLoan = useCallback(async (id: string, data: {
+    borrowerName: string;
+    amount: number;
+    loanDate: string;
+    dueDate: string;
+    paymentMethod: string;
+    notes: string;
+    installments: number;
+    interestRate?: number;
+    lateInterestRate?: number;
+  }) => {
+    if (!user) return;
+    const { error } = await supabase.from('loans').update({
+      borrower_name: data.borrowerName,
+      amount: data.amount,
+      loan_date: data.loanDate,
+      due_date: data.dueDate,
+      payment_method: data.paymentMethod,
+      notes: data.notes,
+      installments: data.installments,
+      interest_rate: data.interestRate || 0,
+      late_interest_rate: data.lateInterestRate || 0,
+    }).eq('id', id);
+    if (error) {
+      toast.error('Erro ao atualizar empréstimo');
+      console.error(error);
+    } else {
+      toast.success('Empréstimo atualizado!');
+      await fetchLoans();
+    }
+  }, [user, fetchLoans]);
+
+  return { loans, loading, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, refetch: fetchLoans };
 }
