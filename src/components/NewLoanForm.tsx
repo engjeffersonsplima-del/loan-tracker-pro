@@ -72,8 +72,8 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h2 className="text-lg font-bold text-foreground">Novo Empréstimo</h2>
-          <p className="text-xs text-muted-foreground">Preencha os dados abaixo</p>
+          <h2 className="text-lg font-bold text-foreground">{editLoan ? 'Editar Empréstimo' : 'Novo Empréstimo'}</h2>
+          <p className="text-xs text-muted-foreground">{editLoan ? 'Altere os dados abaixo' : 'Preencha os dados abaixo'}</p>
         </div>
       </div>
 
