@@ -16,6 +16,8 @@ export interface Loan {
   notes: string;
   status: LoanStatus;
   installments: number;
+  interestRate: number;
+  lateInterestRate: number;
   payments: Payment[];
 }
 
