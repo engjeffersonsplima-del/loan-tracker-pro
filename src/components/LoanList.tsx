@@ -1,11 +1,13 @@
 import { Loan } from '@/types/loan';
 import { StatusBadge } from './StatusBadge';
 import { Card, CardContent } from '@/components/ui/card';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Edit } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface LoanListProps {
   loans: Loan[];
   onSelect: (loan: Loan) => void;
+  onEdit?: (loan: Loan) => void;
   filter?: string;
   search?: string;
 }
@@ -14,7 +16,7 @@ function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function LoanList({ loans, onSelect, filter, search }: LoanListProps) {
+export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListProps) {
   let filtered = loans;
 
   if (filter && filter !== 'todos') {
@@ -55,6 +57,11 @@ export function LoanList({ loans, onSelect, filter, search }: LoanListProps) {
                   {formatCurrency(loan.amount)} · Restante: {formatCurrency(Math.max(0, remaining))}
                 </p>
               </div>
+              {onEdit && (
+                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 text-primary" onClick={(e) => { e.stopPropagation(); onEdit(loan); }}>
+                  <Edit className="h-3.5 w-3.5" />
+                </Button>
+              )}
               <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             </CardContent>
           </Card>

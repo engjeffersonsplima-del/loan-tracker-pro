@@ -1,15 +1,17 @@
 import { Customer } from '@/hooks/useCustomers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ChevronRight, Phone } from 'lucide-react';
+import { ChevronRight, Phone, Edit } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface CustomerListProps {
   customers: Customer[];
   onSelect: (customer: Customer) => void;
+  onEdit?: (customer: Customer) => void;
   search?: string;
 }
 
-export function CustomerList({ customers, onSelect, search }: CustomerListProps) {
+export function CustomerList({ customers, onSelect, onEdit, search }: CustomerListProps) {
   let filtered = customers;
   if (search) {
     const q = search.toLowerCase();
@@ -47,6 +49,11 @@ export function CustomerList({ customers, onSelect, search }: CustomerListProps)
                 </p>
               )}
             </div>
+            {onEdit && (
+              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 text-primary" onClick={(e) => { e.stopPropagation(); onEdit(customer); }}>
+                <Edit className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           </CardContent>
         </Card>
