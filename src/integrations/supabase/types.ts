@@ -59,6 +59,8 @@ export type Database = {
           due_date: string
           id: string
           installments: number
+          interest_rate: number
+          late_interest_rate: number
           loan_date: string
           notes: string | null
           payment_method: string
@@ -74,6 +76,8 @@ export type Database = {
           due_date: string
           id?: string
           installments?: number
+          interest_rate?: number
+          late_interest_rate?: number
           loan_date?: string
           notes?: string | null
           payment_method?: string
@@ -89,6 +93,8 @@ export type Database = {
           due_date?: string
           id?: string
           installments?: number
+          interest_rate?: number
+          late_interest_rate?: number
           loan_date?: string
           notes?: string | null
           payment_method?: string
