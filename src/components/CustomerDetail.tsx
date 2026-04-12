@@ -2,16 +2,17 @@ import { Customer } from '@/hooks/useCustomers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, Trash2, Phone, MapPin, CreditCard, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Trash2, Phone, MapPin, CreditCard, MessageCircle, Edit } from 'lucide-react';
 
 interface CustomerDetailProps {
   customer: Customer;
   onBack: () => void;
   onDelete: (id: string) => void;
+  onEdit: (customer: Customer) => void;
   onWhatsApp: (phone: string, message: string) => void;
 }
 
-export function CustomerDetail({ customer, onBack, onDelete, onWhatsApp }: CustomerDetailProps) {
+export function CustomerDetail({ customer, onBack, onDelete, onEdit, onWhatsApp }: CustomerDetailProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -21,9 +22,14 @@ export function CustomerDetail({ customer, onBack, onDelete, onWhatsApp }: Custo
           </Button>
           <h2 className="text-lg font-semibold text-foreground">{customer.name}</h2>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => onDelete(customer.id)} className="text-destructive">
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" onClick={() => onEdit(customer)} className="text-primary">
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => onDelete(customer.id)} className="text-destructive">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="flex justify-center">
