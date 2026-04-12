@@ -19,11 +19,11 @@ import { Input } from '@/components/ui/input';
 import { Loan } from '@/types/loan';
 import { Plus, Home, List, Users, MessageCircle, Search, LogOut, DollarSign } from 'lucide-react';
 
-type View = 'dashboard' | 'loans' | 'customers' | 'messages' | 'new-loan' | 'loan-detail' | 'edit-loan' | 'new-customer' | 'customer-detail' | 'new-message';
+type View = 'dashboard' | 'loans' | 'customers' | 'messages' | 'new-loan' | 'loan-detail' | 'edit-loan' | 'new-customer' | 'edit-customer' | 'customer-detail' | 'new-message';
 
 export default function Index() {
   const { loans: dbLoans, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid } = useLoansDB();
-  const { customers, addCustomer, deleteCustomer, uploadPhoto } = useCustomers();
+  const { customers, addCustomer, updateCustomer, deleteCustomer, uploadPhoto } = useCustomers();
   const { messages, addMessage, toggleStatus, deleteMessage, sendWhatsApp } = useScheduledMessages();
   const { signOut } = useAuth();
 
@@ -83,6 +83,18 @@ export default function Index() {
   const handleSelectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
     setView('customer-detail');
+  };
+
+  const handleEditCustomer = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setView('edit-customer');
+  };
+
+  const handleUpdateCustomer = async (data: { name: string; address?: string; rg?: string; phone?: string; photo_url?: string }) => {
+    if (selectedCustomer) {
+      await updateCustomer(selectedCustomer.id, data);
+      setView('customers');
+    }
   };
 
   const handleDeleteCustomer = (id: string) => {
@@ -153,7 +165,7 @@ export default function Index() {
                 </Button>
               ))}
             </div>
-            <LoanList loans={loans} onSelect={handleSelectLoan} filter={filter} search={search} />
+            <LoanList loans={loans} onSelect={handleSelectLoan} onEdit={handleEditLoan} filter={filter} search={search} />
           </div>
         )}
 
@@ -169,7 +181,7 @@ export default function Index() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Buscar cliente..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} className="pl-9 h-11 rounded-xl" />
             </div>
-            <CustomerList customers={customers} onSelect={handleSelectCustomer} search={customerSearch} />
+            <CustomerList customers={customers} onSelect={handleSelectCustomer} onEdit={handleEditCustomer} search={customerSearch} />
           </div>
         )}
 
@@ -217,7 +229,23 @@ export default function Index() {
             customer={selectedCustomer}
             onBack={() => setView('customers')}
             onDelete={handleDeleteCustomer}
+            onEdit={handleEditCustomer}
             onWhatsApp={sendWhatsApp}
+          />
+        )}
+
+        {view === 'edit-customer' && selectedCustomer && (
+          <CustomerForm
+            onSave={handleUpdateCustomer}
+            onUploadPhoto={uploadPhoto}
+            onBack={() => setView('customer-detail')}
+            initial={{
+              name: selectedCustomer.name,
+              address: selectedCustomer.address || undefined,
+              rg: selectedCustomer.rg || undefined,
+              phone: selectedCustomer.phone || undefined,
+              photo_url: selectedCustomer.photo_url || undefined,
+            }}
           />
         )}
 
