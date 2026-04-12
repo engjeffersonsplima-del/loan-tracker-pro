@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Calculator, CreditCard, Calendar, Percent } from 'lucide-react';
 
+import { Loan } from '@/types/loan';
+
 interface NewLoanFormProps {
   onSave: (data: {
     borrowerName: string;
@@ -20,22 +22,23 @@ interface NewLoanFormProps {
     lateInterestRate?: number;
   }) => void;
   onBack: () => void;
+  editLoan?: Loan;
 }
 
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function NewLoanForm({ onSave, onBack }: NewLoanFormProps) {
-  const [name, setName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [loanDate, setLoanDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dueDate, setDueDate] = useState('');
-  const [method, setMethod] = useState('pix');
-  const [notes, setNotes] = useState('');
-  const [installments, setInstallments] = useState('1');
-  const [interestRate, setInterestRate] = useState('0');
-  const [lateInterestRate, setLateInterestRate] = useState('0');
+export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
+  const [name, setName] = useState(editLoan?.borrowerName || '');
+  const [amount, setAmount] = useState(editLoan ? String(editLoan.amount) : '');
+  const [loanDate, setLoanDate] = useState(editLoan?.loanDate || new Date().toISOString().split('T')[0]);
+  const [dueDate, setDueDate] = useState(editLoan?.dueDate || '');
+  const [method, setMethod] = useState(editLoan?.paymentMethod || 'pix');
+  const [notes, setNotes] = useState(editLoan?.notes || '');
+  const [installments, setInstallments] = useState(editLoan ? String(editLoan.installments) : '1');
+  const [interestRate, setInterestRate] = useState(editLoan ? String(editLoan.interestRate) : '0');
+  const [lateInterestRate, setLateInterestRate] = useState(editLoan ? String(editLoan.lateInterestRate) : '0');
 
   const preview = useMemo(() => {
     const total = parseFloat(amount) || 0;
