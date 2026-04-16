@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Customer } from '@/hooks/useCustomers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ArrowLeft, Trash2, Phone, MapPin, CreditCard, MessageCircle, Edit } from 'lucide-react';
 
 interface CustomerDetailProps {
@@ -13,6 +15,8 @@ interface CustomerDetailProps {
 }
 
 export function CustomerDetail({ customer, onBack, onDelete, onEdit, onWhatsApp }: CustomerDetailProps) {
+  const [photoOpen, setPhotoOpen] = useState(false);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -33,13 +37,28 @@ export function CustomerDetail({ customer, onBack, onDelete, onEdit, onWhatsApp 
       </div>
 
       <div className="flex justify-center">
-        <Avatar className="w-24 h-24 border-2 border-primary/20">
+        <Avatar
+          className="w-24 h-24 border-2 border-primary/20 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => customer.photo_url && setPhotoOpen(true)}
+        >
           <AvatarImage src={customer.photo_url || undefined} />
           <AvatarFallback className="bg-primary/10 text-primary text-3xl font-bold">
             {customer.name[0].toUpperCase()}
           </AvatarFallback>
         </Avatar>
       </div>
+
+      <Dialog open={photoOpen} onOpenChange={setPhotoOpen}>
+        <DialogContent className="max-w-sm p-2 bg-background">
+          {customer.photo_url && (
+            <img
+              src={customer.photo_url}
+              alt={customer.name}
+              className="w-full h-auto rounded-lg object-contain max-h-[70vh]"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Card className="border-border">
         <CardContent className="p-4 space-y-3">
