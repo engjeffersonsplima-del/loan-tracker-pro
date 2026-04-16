@@ -5,7 +5,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Calculator, CreditCard, Calendar, Percent } from 'lucide-react';
+import { ArrowLeft, Calculator, CreditCard, Calendar, Percent, CheckCircle, XCircle } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 
 import { Loan } from '@/types/loan';
 
@@ -39,6 +41,8 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
   const [installments, setInstallments] = useState(editLoan ? String(editLoan.installments) : '1');
   const [interestRate, setInterestRate] = useState(editLoan ? String(editLoan.interestRate) : '0');
   const [lateInterestRate, setLateInterestRate] = useState(editLoan ? String(editLoan.lateInterestRate) : '0');
+  const [loanType, setLoanType] = useState<'juros_mensal' | 'parcelas_fixas'>(editLoan?.loanType || 'parcelas_fixas');
+  const [interestPaidThisMonth, setInterestPaidThisMonth] = useState(editLoan?.interestPaidThisMonth || false);
 
   const preview = useMemo(() => {
     const total = parseFloat(amount) || 0;
@@ -123,6 +127,36 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
             <Input id="installments" type="number" min="1" value={installments} onChange={e => setInstallments(e.target.value)} className="h-11 rounded-xl" />
           </div>
         </div>
+
+        {/* Tipo de empréstimo */}
+        <div className="space-y-2">
+          <Label className="text-xs font-medium">Tipo de Empréstimo</Label>
+          <RadioGroup value={loanType} onValueChange={(v) => setLoanType(v as any)} className="flex gap-4">
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="parcelas_fixas" id="parcelas_fixas" />
+              <Label htmlFor="parcelas_fixas" className="text-xs cursor-pointer">Parcelas Fixas</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="juros_mensal" id="juros_mensal" />
+              <Label htmlFor="juros_mensal" className="text-xs cursor-pointer">Juros por Mês</Label>
+            </div>
+          </RadioGroup>
+        </div>
+
+        {/* Juros pago este mês */}
+        {loanType === 'juros_mensal' && (
+          <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/30">
+            <div className="flex items-center gap-2">
+              {interestPaidThisMonth ? (
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              ) : (
+                <XCircle className="h-4 w-4 text-destructive" />
+              )}
+              <Label className="text-xs font-medium cursor-pointer">Juros do mês pago?</Label>
+            </div>
+            <Switch checked={interestPaidThisMonth} onCheckedChange={setInterestPaidThisMonth} />
+          </div>
+        )}
 
         {/* Juros */}
         <div className="grid grid-cols-2 gap-3">

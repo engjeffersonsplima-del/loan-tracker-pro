@@ -47,6 +47,8 @@ export default function Index() {
     installments: l.installments,
     interestRate: l.interest_rate,
     lateInterestRate: l.late_interest_rate,
+    loanType: (l as any).loan_type || 'parcelas_fixas',
+    interestPaidThisMonth: (l as any).interest_paid_this_month || false,
     payments: l.payments.map(p => ({ id: p.id, amount: p.amount, date: p.date })),
   }));
 
