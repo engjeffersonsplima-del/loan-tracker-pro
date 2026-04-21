@@ -217,9 +217,26 @@ export function useLoansDB() {
   const stats = useMemo(() => {
     const totalLent = loans.reduce((s, l) => s + l.amount, 0);
     const totalReceived = loans.reduce((s, l) => s + l.payments.reduce((ps, p) => ps + p.amount, 0), 0);
-    const totalPending = totalLent - totalReceived;
+    // Compute total owed including accrued interest (30-day cycles)
+    const now = Date.now();
+    const totalOwedWithInterest = loans.reduce((sum, l) => {
+      if (l.status === 'pago') return sum + l.amount;
+      const start = new Date(l.loan_date).getTime();
+      const days = Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
+      const months = Math.floor(days / 30);
+      const due = l.due_date ? new Date(l.due_date).getTime() : null;
+      const isOverdue = due ? now > due : false;
+      const monthlyRate = (l.interest_rate || 0) / 100;
+      const lateBonus = isOverdue ? (l.late_interest_rate || 0) / 100 : 0;
+      const rate = monthlyRate + lateBonus;
+      const total = l.interest_type === 'composto'
+        ? l.amount * Math.pow(1 + rate, months)
+        : l.amount * (1 + rate * months);
+      return sum + total;
+    }, 0);
+    const totalPending = Math.max(0, totalOwedWithInterest - totalReceived);
     const overdue = loans.filter(l => l.status === 'atrasado').length;
-    return { totalLent, totalReceived, totalPending, overdue };
+    return { totalLent, totalReceived, totalPending, overdue, totalOwedWithInterest };
   }, [loans]);
 
   const updateLoan = useCallback(async (id: string, data: {
