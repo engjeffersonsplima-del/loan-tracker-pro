@@ -357,6 +357,11 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                       <span className="text-muted-foreground">
                         {new Date(c.startDate).toLocaleDateString('pt-BR')} → {new Date(c.endDate).toLocaleDateString('pt-BR')}
                       </span>
+                      {c.principalBase !== undefined && (
+                        <span className="text-[10px] text-muted-foreground">
+                          base: {formatCurrency(c.principalBase)}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex flex-col items-end">
