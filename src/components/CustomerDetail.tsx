@@ -6,7 +6,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ArrowLeft, Trash2, Phone, MapPin, CreditCard, MessageCircle, Edit, Download, DollarSign } from 'lucide-react';
 import { DBLoan } from '@/hooks/useLoansDB';
-import { computeBalanceBreakdown } from '@/lib/loanCalculations';
 import { toast } from 'sonner';
 
 interface CustomerDetailProps {
@@ -24,13 +23,6 @@ function formatCurrency(value: number) {
 
 export function CustomerDetail({ customer, onBack, onDelete, onEdit, onWhatsApp, loans = [] }: CustomerDetailProps) {
   const [photoOpen, setPhotoOpen] = useState(false);
-
-  const customerLoans = loans.filter(
-    l => l.customer_id === customer.id || l.borrower_name.toLowerCase() === customer.name.toLowerCase()
-  );
-  const totalOwed = customerLoans
-    .filter(l => l.status !== 'pago')
-    .reduce((sum, l) => sum + computeBalanceBreakdown(l).remaining, 0);
 
   const handleDownloadPhoto = async () => {
     if (!customer.photo_url) return;
@@ -129,17 +121,6 @@ export function CustomerDetail({ customer, onBack, onDelete, onEdit, onWhatsApp,
           )}
         </DialogContent>
       </Dialog>
-
-      {totalOwed > 0 && (
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="p-4 flex items-center justify-between">
-            <span className="text-sm text-muted-foreground flex items-center gap-1.5">
-              <DollarSign className="h-3.5 w-3.5" /> Total devido (com juros)
-            </span>
-            <span className="text-base font-bold text-destructive">{formatCurrency(totalOwed)}</span>
-          </CardContent>
-        </Card>
-      )}
 
       <Card className="border-border">
         <CardContent className="p-4 space-y-3">

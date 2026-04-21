@@ -3,6 +3,7 @@ import { StatusBadge } from './StatusBadge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChevronRight, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { computeBalanceBreakdown } from '@/lib/loanCalculations';
 
 interface LoanListProps {
   loans: Loan[];
@@ -39,6 +40,17 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
   return (
     <div className="space-y-2">
       {filtered.map(loan => {
+        const dbLike = {
+          amount: loan.amount,
+          loan_date: loan.loanDate,
+          due_date: loan.dueDate || null,
+          status: loan.status,
+          interest_rate: loan.interestRate,
+          late_interest_rate: loan.lateInterestRate,
+          interest_type: loan.interestType,
+          payments: loan.payments.map(p => ({ amount: p.amount, date: p.date })),
+        };
+        const totalDue = loan.status !== 'pago' ? computeBalanceBreakdown(dbLike).remaining : 0;
         return (
           <Card
             key={loan.id}
@@ -54,6 +66,11 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
                 <p className="text-xs text-muted-foreground">
                   {formatCurrency(loan.amount)}
                 </p>
+                {totalDue > 0 && (
+                  <p className="text-xs font-semibold text-destructive mt-0.5">
+                    Total devido: {formatCurrency(totalDue)}
+                  </p>
+                )}
               </div>
               {onEdit && (
                 <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 text-primary" onClick={(e) => { e.stopPropagation(); onEdit(loan); }}>
