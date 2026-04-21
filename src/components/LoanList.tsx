@@ -68,7 +68,7 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
                 </p>
                 {totalDue > 0 && (
                   <p className="text-xs font-semibold text-destructive mt-0.5">
-                    Total devido: {formatCurrency(totalDue)}
+                    Saldo devedor: {formatCurrency(totalDue)}
                   </p>
                 )}
               </div>
