@@ -39,8 +39,6 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
   return (
     <div className="space-y-2">
       {filtered.map(loan => {
-        const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0);
-        const remaining = loan.amount - totalPaid;
         return (
           <Card
             key={loan.id}
@@ -54,7 +52,7 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
                   <StatusBadge status={loan.status} />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {formatCurrency(loan.amount)} · Restante: {formatCurrency(Math.max(0, remaining))}
+                  {formatCurrency(loan.amount)}
                 </p>
               </div>
               {onEdit && (

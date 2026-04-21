@@ -3,15 +3,22 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChevronRight, Phone, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DBLoan } from '@/hooks/useLoansDB';
+import { computeBalanceBreakdown } from '@/lib/loanCalculations';
 
 interface CustomerListProps {
   customers: Customer[];
   onSelect: (customer: Customer) => void;
   onEdit?: (customer: Customer) => void;
   search?: string;
+  loans?: DBLoan[];
 }
 
-export function CustomerList({ customers, onSelect, onEdit, search }: CustomerListProps) {
+function formatCurrency(value: number) {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+export function CustomerList({ customers, onSelect, onEdit, search, loans = [] }: CustomerListProps) {
   let filtered = customers;
   if (search) {
     const q = search.toLowerCase();
@@ -28,7 +35,14 @@ export function CustomerList({ customers, onSelect, onEdit, search }: CustomerLi
 
   return (
     <div className="space-y-2">
-      {filtered.map(customer => (
+      {filtered.map(customer => {
+        const customerLoans = loans.filter(
+          l => l.customer_id === customer.id || l.borrower_name.toLowerCase() === customer.name.toLowerCase()
+        );
+        const totalOwed = customerLoans
+          .filter(l => l.status !== 'pago')
+          .reduce((sum, l) => sum + computeBalanceBreakdown(l).remaining, 0);
+        return (
         <Card
           key={customer.id}
           className="border-border cursor-pointer hover:bg-accent/50 transition-colors"
@@ -48,6 +62,11 @@ export function CustomerList({ customers, onSelect, onEdit, search }: CustomerLi
                   <Phone className="h-3 w-3" /> {customer.phone}
                 </p>
               )}
+              {totalOwed > 0 && (
+                <p className="text-xs font-semibold text-destructive mt-0.5">
+                  Devido: {formatCurrency(totalOwed)}
+                </p>
+              )}
             </div>
             {onEdit && (
               <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 text-primary" onClick={(e) => { e.stopPropagation(); onEdit(customer); }}>
@@ -57,7 +76,8 @@ export function CustomerList({ customers, onSelect, onEdit, search }: CustomerLi
             <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           </CardContent>
         </Card>
-      ))}
+        );
+      })}
     </div>
   );
 }
