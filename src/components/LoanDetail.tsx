@@ -31,16 +31,25 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
   const [editAmount, setEditAmount] = useState('');
   const [editDate, setEditDate] = useState('');
   const overrideKey = `loan-cycle-overrides:${loan.id}`;
-  const [cycleOverrides, setCycleOverrides] = useState<Record<number, number>>(() => {
+  type CycleOverride = { amount?: number; startDate?: string };
+  const [cycleOverrides, setCycleOverrides] = useState<Record<number, CycleOverride>>(() => {
     try {
       const raw = localStorage.getItem(overrideKey);
-      return raw ? JSON.parse(raw) : {};
+      const parsed = raw ? JSON.parse(raw) : {};
+      // Migrate legacy format: { [n]: number } -> { [n]: { amount: number } }
+      const migrated: Record<number, CycleOverride> = {};
+      Object.entries(parsed).forEach(([k, v]) => {
+        if (typeof v === 'number') migrated[Number(k)] = { amount: v };
+        else if (v && typeof v === 'object') migrated[Number(k)] = v as CycleOverride;
+      });
+      return migrated;
     } catch {
       return {};
     }
   });
   const [editingCycle, setEditingCycle] = useState<number | null>(null);
   const [editCycleAmount, setEditCycleAmount] = useState('');
+  const [editCycleDate, setEditCycleDate] = useState('');
   useEffect(() => {
     try { localStorage.setItem(overrideKey, JSON.stringify(cycleOverrides)); } catch {}
   }, [cycleOverrides, overrideKey]);
@@ -58,12 +67,37 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
       payments: loan.payments.map(p => ({ amount: p.amount, date: p.date })),
     };
     const rawCycles = computeInterestCyclesWithStatus(loanLike);
-    // Apply manual overrides to cycle interest amounts
-    const cycles = rawCycles.map(c =>
-      cycleOverrides[c.cycleNumber] !== undefined && c.status !== 'em_curso'
-        ? { ...c, interestAmount: cycleOverrides[c.cycleNumber] }
-        : c
-    );
+    const DAY_MS = 1000 * 60 * 60 * 24;
+    const due = loan.dueDate ? new Date(loan.dueDate).getTime() : null;
+    // Apply manual overrides: amount and/or startDate (cascading +30d to next cycles)
+    let cycles = rawCycles.map(c => ({ ...c }));
+    for (let i = 0; i < cycles.length; i++) {
+      const ov = cycleOverrides[cycles[i].cycleNumber];
+      if (ov?.startDate) {
+        const newStart = new Date(ov.startDate).getTime();
+        cycles[i].startDate = new Date(newStart).toISOString().split('T')[0];
+        cycles[i].endDate = new Date(newStart + 30 * DAY_MS).toISOString().split('T')[0];
+        // Cascade following cycles every 30 days
+        for (let j = i + 1; j < cycles.length; j++) {
+          const s = newStart + (j - i) * 30 * DAY_MS;
+          cycles[j].startDate = new Date(s).toISOString().split('T')[0];
+          cycles[j].endDate = new Date(s + 30 * DAY_MS).toISOString().split('T')[0];
+        }
+      }
+    }
+    // Recompute isLate based on (possibly new) endDate vs due_date
+    cycles = cycles.map(c => ({
+      ...c,
+      isLate: due !== null && new Date(c.endDate).getTime() > due,
+    }));
+    // Apply amount overrides (only on completed cycles)
+    cycles = cycles.map(c => {
+      const ov = cycleOverrides[c.cycleNumber];
+      if (ov?.amount !== undefined && c.status !== 'em_curso') {
+        return { ...c, interestAmount: ov.amount };
+      }
+      return c;
+    });
     const totalInterest = cycles
       .filter(c => c.status !== 'em_curso')
       .reduce((s, c) => s + c.interestAmount, 0);
@@ -84,8 +118,8 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
     const completedCycles = cyclesStatused.filter(c => c.status !== 'em_curso').length;
     const lateCyclesCount = cyclesStatused.filter(c => c.isLate && c.status !== 'em_curso').length;
     const now = new Date();
-    const due = loan.dueDate ? new Date(loan.dueDate) : null;
-    const isOverdue = !!due && now > due && loan.status !== 'pago';
+    const dueDateObj = loan.dueDate ? new Date(loan.dueDate) : null;
+    const isOverdue = !!dueDateObj && now > dueDateObj && loan.status !== 'pago';
     return {
       remaining,
       totalWithInterest: totalOwed,
@@ -267,30 +301,49 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
             {cycles.filter(c => c.status !== 'em_curso').map(c => (
               <div key={c.cycleNumber} className="py-2 px-3 rounded-md bg-accent/30 border border-border text-xs">
                 {editingCycle === c.cycleNumber ? (
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground flex-shrink-0">Ciclo {c.cycleNumber}</span>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={editCycleAmount}
-                      onChange={e => setEditCycleAmount(e.target.value)}
-                      className="h-8 text-xs flex-1"
-                    />
-                    <Button
-                      size="sm"
-                      className="h-8 text-xs"
-                      onClick={() => {
-                        const val = parseFloat(editCycleAmount);
-                        if (isNaN(val) || val < 0) return;
-                        setCycleOverrides(prev => ({ ...prev, [c.cycleNumber]: val }));
-                        setEditingCycle(null);
-                      }}
-                    >
-                      Salvar
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setEditingCycle(null)}>
-                      Cancelar
-                    </Button>
+                  <div className="space-y-2">
+                    <span className="font-medium text-foreground block">Ciclo {c.cycleNumber}</span>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[10px] text-muted-foreground w-16">Início</label>
+                      <Input
+                        type="date"
+                        value={editCycleDate}
+                        onChange={e => setEditCycleDate(e.target.value)}
+                        className="h-8 text-xs flex-1"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[10px] text-muted-foreground w-16">Juros R$</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editCycleAmount}
+                        onChange={e => setEditCycleAmount(e.target.value)}
+                        className="h-8 text-xs flex-1"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setEditingCycle(null)}>
+                        Cancelar
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => {
+                          const val = parseFloat(editCycleAmount);
+                          const next: CycleOverride = {};
+                          if (!isNaN(val) && val >= 0) next.amount = val;
+                          if (editCycleDate) next.startDate = editCycleDate;
+                          setCycleOverrides(prev => ({ ...prev, [c.cycleNumber]: next }));
+                          setEditingCycle(null);
+                        }}
+                      >
+                        Salvar
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Alterar a data do início recalcula os ciclos seguintes a cada 30 dias.
+                    </p>
                   </div>
                 ) : (
                   <div className="flex justify-between items-center">
@@ -321,6 +374,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                         onClick={() => {
                           setEditingCycle(c.cycleNumber);
                           setEditCycleAmount(String(c.interestAmount.toFixed(2)));
+                          setEditCycleDate(c.startDate);
                         }}
                       >
                         <Edit className="h-3.5 w-3.5" />
