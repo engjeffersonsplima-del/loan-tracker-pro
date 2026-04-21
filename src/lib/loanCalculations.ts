@@ -125,8 +125,9 @@ export function computeLoanOwed(loan: LoanLike, now: number = Date.now()): numbe
 }
 
 /**
- * Remaining balance: pagamentos abatem juros pendentes primeiro, depois principal.
- * Returns { remaining, interestPaid, principalPaid, totalInterest }.
+ * Remaining balance, computed from per-cycle accrual on the live principal.
+ * Pagamentos abatem juros do ciclo primeiro (cronologicamente), depois principal.
+ * Returns { remaining, interestPaid, principalPaid, totalInterest, totalOwed, totalPaid }.
  */
 export function computeBalanceBreakdown(loan: LoanLike, now: number = Date.now()) {
   const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0);
