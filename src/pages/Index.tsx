@@ -185,7 +185,7 @@ export default function Index() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Buscar cliente..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} className="pl-9 h-11 rounded-xl" />
             </div>
-            <CustomerList customers={customers} onSelect={handleSelectCustomer} onEdit={handleEditCustomer} search={customerSearch} loans={dbLoans} />
+            <CustomerList customers={customers} onSelect={handleSelectCustomer} onEdit={handleEditCustomer} search={customerSearch} />
           </div>
         )}
 

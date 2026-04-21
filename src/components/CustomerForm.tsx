@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Camera, User, MapPin, CreditCard, Phone } from 'lucide-react';
+import { ArrowLeft, Camera, User, MapPin, CreditCard, Phone, Download, Upload } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { toast } from 'sonner';
 
 interface CustomerFormProps {
   onSave: (data: { name: string; address?: string; rg?: string; phone?: string; photo_url?: string }) => Promise<any>;
@@ -22,6 +23,7 @@ export function CustomerForm({ onSave, onUploadPhoto, onBack, initial }: Custome
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -30,6 +32,48 @@ export function CustomerForm({ onSave, onUploadPhoto, onBack, initial }: Custome
     const url = await onUploadPhoto(file);
     if (url) setPhotoUrl(url);
     setUploading(false);
+  };
+
+  const handleDownloadPhoto = async () => {
+    if (!photoUrl) {
+      toast.error('Nenhuma foto para baixar');
+      return;
+    }
+    try {
+      const res = await fetch(photoUrl);
+      const blob = await res.blob();
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      const url = URL.createObjectURL(blob);
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob((jpgBlob) => {
+          if (!jpgBlob) return;
+          const link = document.createElement('a');
+          const safeName = (name || 'cliente').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+          link.download = `${safeName}.jpg`;
+          link.href = URL.createObjectURL(jpgBlob);
+          link.click();
+          URL.revokeObjectURL(link.href);
+          URL.revokeObjectURL(url);
+          toast.success('Imagem baixada');
+        }, 'image/jpeg', 0.92);
+      };
+      img.onerror = () => {
+        toast.error('Erro ao baixar imagem');
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    } catch {
+      toast.error('Erro ao baixar imagem');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,12 +112,50 @@ export function CustomerForm({ onSave, onUploadPhoto, onBack, initial }: Custome
               disabled={uploading}
               className="absolute -bottom-1 -right-1 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-md hover:opacity-90 transition"
             >
-              <Camera className="h-4 w-4" />
+              <Upload className="h-4 w-4" />
             </button>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhoto} />
           </div>
         </div>
         {uploading && <p className="text-xs text-center text-muted-foreground">Enviando foto...</p>}
+
+        <div className="flex justify-center gap-2 flex-wrap">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => cameraRef.current?.click()}
+            disabled={uploading}
+            className="rounded-xl"
+          >
+            <Camera className="h-4 w-4 mr-2" />
+            Tirar foto
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="rounded-xl"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Enviar foto
+          </Button>
+          {photoUrl && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadPhoto}
+              className="rounded-xl"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Baixar JPG
+            </Button>
+          )}
+        </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="cname" className="text-xs font-medium flex items-center gap-1">
