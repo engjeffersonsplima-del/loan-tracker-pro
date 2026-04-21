@@ -187,6 +187,45 @@ describe('computeBalanceBreakdown', () => {
   });
 });
 
+describe('payments reduce future interest (saldo-based)', () => {
+  it('R$5000 @ 8%/ciclo: pagamento entre ciclos reduz juros futuros', () => {
+    // Loan 90 days ago. 8% per 30-day cycle = R$400 on R$5000.
+    // After cycle 1 (60 days ago) borrower pays R$400 (juros) + R$2500 (principal).
+    // Cycle 2 base = 2500 -> juros = 200. Cycle 3 base = 2500 -> juros = 200.
+    const loan = makeLoan({
+      amount: 5000,
+      loan_date: daysAgo(90),
+      interest_rate: 8,
+      interest_type: 'simples',
+      payments: [{ amount: 2900, date: daysAgo(60) }],
+    });
+    const cycles = computeInterestCycles(loan, NOW).filter(c => c.status !== 'em_curso');
+    expect(cycles).toHaveLength(3);
+    expect(cycles[0].interestAmount).toBeCloseTo(400);
+    expect(cycles[1].interestAmount).toBeCloseTo(200);
+    expect(cycles[2].interestAmount).toBeCloseTo(200);
+    // Total interest 800; total devido 5800; pago 2900 -> saldo 2900.
+    // (Principal restante 2500 + 200 juros ciclo2 + 200 juros ciclo3 = 2900)
+    const b = computeBalanceBreakdown(loan, NOW);
+    expect(b.totalInterest).toBeCloseTo(800);
+    expect(b.remaining).toBeCloseTo(2900);
+  });
+
+  it('sem pagamentos parciais: juros continuam sobre principal cheio', () => {
+    const loan = makeLoan({
+      amount: 5000,
+      loan_date: daysAgo(90),
+      interest_rate: 8,
+      interest_type: 'simples',
+      payments: [],
+    });
+    const cycles = computeInterestCycles(loan, NOW).filter(c => c.status !== 'em_curso');
+    expect(cycles[0].interestAmount).toBeCloseTo(400);
+    expect(cycles[1].interestAmount).toBeCloseTo(400);
+    expect(cycles[2].interestAmount).toBeCloseTo(400);
+  });
+});
+
 describe('computeLoansStats', () => {
   it('aggregates totals with partial payments', () => {
     const loans: LoanLike[] = [
