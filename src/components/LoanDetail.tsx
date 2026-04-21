@@ -221,6 +221,35 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
         </div>
       )}
 
+      {cycles.filter(c => c.status !== 'em_curso').length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium mb-2 text-foreground flex items-center gap-1.5">
+            <History className="h-4 w-4 text-primary" />
+            Histórico de Juros
+          </h3>
+          <div className="space-y-1">
+            {cycles.filter(c => c.status !== 'em_curso').map(c => (
+              <div key={c.cycleNumber} className="py-2 px-3 rounded-md bg-accent/30 border border-border flex justify-between items-center text-xs">
+                <div className="flex flex-col">
+                  <span className="font-medium text-foreground">Ciclo {c.cycleNumber}</span>
+                  <span className="text-muted-foreground">
+                    {new Date(c.startDate).toLocaleDateString('pt-BR')} → {new Date(c.endDate).toLocaleDateString('pt-BR')}
+                  </span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className={`font-semibold ${c.isLate ? 'text-destructive' : 'text-warning'}`}>
+                    {formatCurrency(c.interestAmount)}
+                  </span>
+                  <span className={`text-[10px] uppercase tracking-wide ${c.status === 'pago' ? 'text-primary' : 'text-muted-foreground'}`}>
+                    {c.status === 'pago' ? '✓ Pago' : '• Pendente'}{c.isLate ? ' · atraso' : ''}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {loan.payments.length > 0 && (
         <div>
           <h3 className="text-sm font-medium mb-2 text-foreground">Histórico de Pagamentos</h3>
