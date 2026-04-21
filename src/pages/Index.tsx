@@ -214,6 +214,8 @@ export default function Index() {
             onDelete={handleDeleteLoan}
             onEdit={handleEditLoan}
             onUpdateStatus={updateStatus}
+            onUpdatePayment={updatePayment}
+            onDeletePayment={deletePayment}
           />
         )}
 
