@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Calculator, CreditCard, Calendar, Percent, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Calculator, CreditCard, Calendar, Percent, CheckCircle, XCircle, Infinity as InfinityIcon } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 
@@ -16,12 +16,15 @@ interface NewLoanFormProps {
     borrowerName: string;
     amount: number;
     loanDate: string;
-    dueDate: string;
+    dueDate: string | null;
     paymentMethod: string;
     notes: string;
     installments: number;
     interestRate?: number;
     lateInterestRate?: number;
+    interestType?: 'simples' | 'composto';
+    indefiniteTerm?: boolean;
+    loanType?: 'juros_mensal' | 'parcelas_fixas';
   }) => void;
   onBack: () => void;
   editLoan?: Loan;
@@ -43,6 +46,8 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
   const [lateInterestRate, setLateInterestRate] = useState(editLoan ? String(editLoan.lateInterestRate) : '0');
   const [loanType, setLoanType] = useState<'juros_mensal' | 'parcelas_fixas'>(editLoan?.loanType || 'parcelas_fixas');
   const [interestPaidThisMonth, setInterestPaidThisMonth] = useState(editLoan?.interestPaidThisMonth || false);
+  const [interestType, setInterestType] = useState<'simples' | 'composto'>(editLoan?.interestType || 'simples');
+  const [indefiniteTerm, setIndefiniteTerm] = useState<boolean>(editLoan?.indefiniteTerm || false);
 
   const preview = useMemo(() => {
     const total = parseFloat(amount) || 0;
@@ -55,17 +60,21 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !amount || !dueDate) return;
+    if (!name || !amount) return;
+    if (!indefiniteTerm && !dueDate) return;
     onSave({
       borrowerName: name,
       amount: parseFloat(amount),
       loanDate,
-      dueDate,
+      dueDate: indefiniteTerm ? null : dueDate,
       paymentMethod: method,
       notes,
       installments: parseInt(installments) || 1,
       interestRate: parseFloat(interestRate) || 0,
       lateInterestRate: parseFloat(lateInterestRate) || 0,
+      interestType,
+      indefiniteTerm,
+      loanType,
     });
   };
 
@@ -103,8 +112,17 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
             <Label htmlFor="dueDate" className="text-xs font-medium flex items-center gap-1">
               <Calendar className="h-3 w-3" /> Vencimento
             </Label>
-            <Input id="dueDate" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} required className="h-11 rounded-xl" />
+            <Input id="dueDate" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} disabled={indefiniteTerm} required={!indefiniteTerm} className="h-11 rounded-xl disabled:opacity-50" />
           </div>
+        </div>
+
+        {/* Prazo indefinido */}
+        <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/30">
+          <div className="flex items-center gap-2">
+            <InfinityIcon className="h-4 w-4 text-primary" />
+            <Label className="text-xs font-medium cursor-pointer">Prazo indefinido (sem data final)</Label>
+          </div>
+          <Switch checked={indefiniteTerm} onCheckedChange={setIndefiniteTerm} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -162,7 +180,7 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="interestRate" className="text-xs font-medium flex items-center gap-1">
-              <Percent className="h-3 w-3" /> Juros (%)
+              <Percent className="h-3 w-3" /> Juros mensal (%)
             </Label>
             <Input id="interestRate" type="number" step="0.1" min="0" value={interestRate} onChange={e => setInterestRate(e.target.value)} placeholder="0" className="h-11 rounded-xl" />
           </div>
@@ -172,6 +190,21 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
             </Label>
             <Input id="lateInterestRate" type="number" step="0.1" min="0" value={lateInterestRate} onChange={e => setLateInterestRate(e.target.value)} placeholder="0" className="h-11 rounded-xl" />
           </div>
+        </div>
+
+        {/* Tipo de juros (simples/composto) */}
+        <div className="space-y-2">
+          <Label className="text-xs font-medium">Tipo de Juros</Label>
+          <RadioGroup value={interestType} onValueChange={(v) => setInterestType(v as 'simples' | 'composto')} className="flex gap-4">
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="simples" id="juros_simples" />
+              <Label htmlFor="juros_simples" className="text-xs cursor-pointer">Simples (sobre o valor original)</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="composto" id="juros_composto" />
+              <Label htmlFor="juros_composto" className="text-xs cursor-pointer">Composto (juros sobre juros)</Label>
+            </div>
+          </RadioGroup>
         </div>
 
         {/* Preview de parcelas */}
