@@ -178,7 +178,22 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
       interestPaid,
       principalPaid,
     };
-  }, [loan, cycleOverrides, totalPaid, recalcTick]);
+    // Reagir a mudanças finas: cada pagamento (valor + data), datas do empréstimo,
+    // taxas, tipo de juros e overrides de ciclos.
+  }, [
+    loan.id,
+    loan.amount,
+    loan.loanDate,
+    loan.dueDate,
+    loan.status,
+    loan.interestRate,
+    loan.lateInterestRate,
+    loan.interestType,
+    // serializa pagamentos para detectar edição de data ou valor individual
+    JSON.stringify(loan.payments.map(p => ({ a: p.amount, d: p.date }))),
+    cycleOverrides,
+    recalcTick,
+  ]);
 
   const handleRecalculate = async () => {
     setIsRecalculating(true);
