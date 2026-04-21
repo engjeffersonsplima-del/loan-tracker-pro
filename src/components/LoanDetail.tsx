@@ -182,6 +182,16 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
           <h2 className="text-lg font-semibold text-foreground">{loan.borrowerName}</h2>
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRecalculate}
+            disabled={isRecalculating}
+            className="text-primary"
+            title="Recalcular juros e saldo devedor"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRecalculating ? 'animate-spin' : ''}`} />
+          </Button>
           <Button variant="ghost" size="icon" onClick={() => onEdit(loan)} className="text-primary">
             <Edit className="h-4 w-4" />
           </Button>
