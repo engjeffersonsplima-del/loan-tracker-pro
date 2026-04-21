@@ -548,6 +548,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                         if (!val || val <= 0) return;
                         onUpdatePayment?.(p.id, { amount: val, date: editDate });
                         setEditingPaymentId(null);
+                          setTimeout(() => { void handleRecalculate(); }, 300);
                       }}
                     >
                       Salvar
