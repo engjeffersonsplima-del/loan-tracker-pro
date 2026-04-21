@@ -4,7 +4,9 @@ import { StatusBadge } from './StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Trash2, CheckCircle, Percent, Edit } from 'lucide-react';
+import { ArrowLeft, Trash2, CheckCircle, Percent, Edit, Infinity as InfinityIcon } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
 
 interface LoanDetailProps {
   loan: Loan;
@@ -13,25 +15,42 @@ interface LoanDetailProps {
   onMarkPaid: (loanId: string) => void;
   onDelete: (loanId: string) => void;
   onEdit: (loan: Loan) => void;
+  onUpdateStatus?: (loanId: string, status: string) => void;
 }
 
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, onEdit }: LoanDetailProps) {
+export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, onEdit, onUpdateStatus }: LoanDetailProps) {
   const [payAmount, setPayAmount] = useState('');
   const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0);
 
-  const { remaining, totalWithInterest, appliedRate, isOverdue } = useMemo(() => {
+  const { remaining, totalWithInterest, monthsElapsed, accruedInterest, isOverdue } = useMemo(() => {
     const now = new Date();
-    const due = new Date(loan.dueDate);
-    const isOverdue = now > due && loan.status !== 'pago';
-    const rate = isOverdue ? (loan.interestRate + loan.lateInterestRate) : loan.interestRate;
-    const totalWithInterest = loan.amount * (1 + rate / 100);
+    const start = new Date(loan.loanDate);
+    const due = loan.dueDate ? new Date(loan.dueDate) : null;
+    const isOverdue = !!due && now > due && loan.status !== 'pago';
+    // Months elapsed since loan start (30-day cycles)
+    const days = Math.max(0, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+    const monthsElapsed = Math.floor(days / 30);
+    const monthlyRate = loan.interestRate / 100; // taxa mensal
+    const lateBonus = isOverdue ? loan.lateInterestRate / 100 : 0;
+    const effectiveRate = monthlyRate + lateBonus;
+    let totalWithInterest = loan.amount;
+    if (loan.interestType === 'composto') {
+      totalWithInterest = loan.amount * Math.pow(1 + effectiveRate, monthsElapsed);
+    } else {
+      totalWithInterest = loan.amount * (1 + effectiveRate * monthsElapsed);
+    }
+    const accruedInterest = totalWithInterest - loan.amount;
     const remaining = Math.max(0, totalWithInterest - totalPaid);
-    return { remaining, totalWithInterest, appliedRate: rate, isOverdue };
+    return { remaining, totalWithInterest, monthsElapsed, accruedInterest, isOverdue };
   }, [loan, totalPaid]);
+
+  const installmentValue = loan.installments > 0 ? loan.amount / loan.installments : 0;
+  const installmentsPaid = installmentValue > 0 ? Math.min(loan.installments, Math.floor(totalPaid / installmentValue)) : 0;
+  const progressPct = loan.installments > 0 ? (installmentsPaid / loan.installments) * 100 : 0;
 
   const handlePayment = () => {
     const val = parseFloat(payAmount);
