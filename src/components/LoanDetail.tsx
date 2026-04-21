@@ -31,16 +31,25 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
   const [editAmount, setEditAmount] = useState('');
   const [editDate, setEditDate] = useState('');
   const overrideKey = `loan-cycle-overrides:${loan.id}`;
-  const [cycleOverrides, setCycleOverrides] = useState<Record<number, number>>(() => {
+  type CycleOverride = { amount?: number; startDate?: string };
+  const [cycleOverrides, setCycleOverrides] = useState<Record<number, CycleOverride>>(() => {
     try {
       const raw = localStorage.getItem(overrideKey);
-      return raw ? JSON.parse(raw) : {};
+      const parsed = raw ? JSON.parse(raw) : {};
+      // Migrate legacy format: { [n]: number } -> { [n]: { amount: number } }
+      const migrated: Record<number, CycleOverride> = {};
+      Object.entries(parsed).forEach(([k, v]) => {
+        if (typeof v === 'number') migrated[Number(k)] = { amount: v };
+        else if (v && typeof v === 'object') migrated[Number(k)] = v as CycleOverride;
+      });
+      return migrated;
     } catch {
       return {};
     }
   });
   const [editingCycle, setEditingCycle] = useState<number | null>(null);
   const [editCycleAmount, setEditCycleAmount] = useState('');
+  const [editCycleDate, setEditCycleDate] = useState('');
   useEffect(() => {
     try { localStorage.setItem(overrideKey, JSON.stringify(cycleOverrides)); } catch {}
   }, [cycleOverrides, overrideKey]);
