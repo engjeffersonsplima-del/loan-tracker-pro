@@ -135,7 +135,31 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
       interestPaid,
       principalPaid,
     };
-  }, [loan, cycleOverrides, totalPaid]);
+  }, [loan, cycleOverrides, totalPaid, recalcTick]);
+
+  const handleRecalculate = async () => {
+    setIsRecalculating(true);
+    try {
+      // Repuxa pagamentos/empréstimo do banco (caso houve edições)
+      if (onRecalculate) await onRecalculate();
+      // Limpa overrides de ciclos que já não existem mais (ex: data de empréstimo mudou)
+      setCycleOverrides(prev => {
+        const validNumbers = new Set(cycles.map(c => c.cycleNumber));
+        const next: Record<number, CycleOverride> = {};
+        Object.entries(prev).forEach(([k, v]) => {
+          if (validNumbers.has(Number(k))) next[Number(k)] = v;
+        });
+        return next;
+      });
+      // Força re-execução do useMemo
+      setRecalcTick(t => t + 1);
+      toast.success('Juros e saldo recalculados!');
+    } catch (e) {
+      toast.error('Erro ao recalcular');
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
 
   const installmentValue = loan.installments > 0 ? loan.amount / loan.installments : 0;
   const installmentsPaid = installmentValue > 0 ? Math.min(loan.installments, Math.floor(totalPaid / installmentValue)) : 0;
