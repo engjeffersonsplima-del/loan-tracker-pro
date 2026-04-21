@@ -44,7 +44,7 @@ function computeStatus(amount: number, totalPaid: number, dueDate: string | null
   return now > due ? 'atrasado' : 'em_dia';
 }
 
-export function useLoansDB() {
+export function useLoansDB(onCustomerCreated?: () => void) {
   const { user } = useAuth();
   const [loans, setLoans] = useState<DBLoan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +125,10 @@ export function useLoansDB() {
           .insert({ user_id: user.id, name: data.borrowerName.trim() })
           .select('id')
           .maybeSingle();
-        if (created) customerId = created.id;
+        if (created) {
+          customerId = created.id;
+          onCustomerCreated?.();
+        }
       }
     }
 
@@ -153,7 +156,7 @@ export function useLoansDB() {
       toast.success('Empréstimo salvo!');
       await fetchLoans();
     }
-  }, [user, fetchLoans]);
+  }, [user, fetchLoans, onCustomerCreated]);
 
   const deleteLoan = useCallback(async (id: string) => {
     if (!user) return;
@@ -217,9 +220,26 @@ export function useLoansDB() {
   const stats = useMemo(() => {
     const totalLent = loans.reduce((s, l) => s + l.amount, 0);
     const totalReceived = loans.reduce((s, l) => s + l.payments.reduce((ps, p) => ps + p.amount, 0), 0);
-    const totalPending = totalLent - totalReceived;
+    // Compute total owed including accrued interest (30-day cycles)
+    const now = Date.now();
+    const totalOwedWithInterest = loans.reduce((sum, l) => {
+      if (l.status === 'pago') return sum + l.amount;
+      const start = new Date(l.loan_date).getTime();
+      const days = Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
+      const months = Math.floor(days / 30);
+      const due = l.due_date ? new Date(l.due_date).getTime() : null;
+      const isOverdue = due ? now > due : false;
+      const monthlyRate = (l.interest_rate || 0) / 100;
+      const lateBonus = isOverdue ? (l.late_interest_rate || 0) / 100 : 0;
+      const rate = monthlyRate + lateBonus;
+      const total = l.interest_type === 'composto'
+        ? l.amount * Math.pow(1 + rate, months)
+        : l.amount * (1 + rate * months);
+      return sum + total;
+    }, 0);
+    const totalPending = Math.max(0, totalOwedWithInterest - totalReceived);
     const overdue = loans.filter(l => l.status === 'atrasado').length;
-    return { totalLent, totalReceived, totalPending, overdue };
+    return { totalLent, totalReceived, totalPending, overdue, totalOwedWithInterest };
   }, [loans]);
 
   const updateLoan = useCallback(async (id: string, data: {
@@ -272,5 +292,29 @@ export function useLoansDB() {
     }
   }, [user, fetchLoans]);
 
-  return { loans, loading, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, updateStatus, refetch: fetchLoans };
+  const updatePayment = useCallback(async (paymentId: string, data: { amount?: number; date?: string }) => {
+    if (!user) return;
+    const { error } = await supabase.from('payments').update(data).eq('id', paymentId);
+    if (error) {
+      toast.error('Erro ao atualizar pagamento');
+      console.error(error);
+    } else {
+      toast.success('Pagamento atualizado!');
+      await fetchLoans();
+    }
+  }, [user, fetchLoans]);
+
+  const deletePayment = useCallback(async (paymentId: string) => {
+    if (!user) return;
+    const { error } = await supabase.from('payments').delete().eq('id', paymentId);
+    if (error) {
+      toast.error('Erro ao excluir pagamento');
+      console.error(error);
+    } else {
+      toast.success('Pagamento excluído!');
+      await fetchLoans();
+    }
+  }, [user, fetchLoans]);
+
+  return { loans, loading, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, updateStatus, updatePayment, deletePayment, refetch: fetchLoans };
 }

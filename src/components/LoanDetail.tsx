@@ -16,14 +16,19 @@ interface LoanDetailProps {
   onDelete: (loanId: string) => void;
   onEdit: (loan: Loan) => void;
   onUpdateStatus?: (loanId: string, status: string) => void;
+  onUpdatePayment?: (paymentId: string, data: { amount?: number; date?: string }) => void;
+  onDeletePayment?: (paymentId: string) => void;
 }
 
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, onEdit, onUpdateStatus }: LoanDetailProps) {
+export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, onEdit, onUpdateStatus, onUpdatePayment, onDeletePayment }: LoanDetailProps) {
   const [payAmount, setPayAmount] = useState('');
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editDate, setEditDate] = useState('');
   const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0);
 
   const { remaining, totalWithInterest, monthsElapsed, accruedInterest, isOverdue } = useMemo(() => {
@@ -205,9 +210,70 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
           <h3 className="text-sm font-medium mb-2 text-foreground">Histórico de Pagamentos</h3>
           <div className="space-y-1">
             {loan.payments.map(p => (
-              <div key={p.id} className="flex justify-between text-sm py-2 border-b border-border last:border-0">
-                <span className="text-muted-foreground">{new Date(p.date).toLocaleDateString('pt-BR')}</span>
-                <span className="font-medium text-primary">{formatCurrency(p.amount)}</span>
+              <div key={p.id} className="py-2 border-b border-border last:border-0">
+                {editingPaymentId === p.id ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={editDate}
+                      onChange={e => setEditDate(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editAmount}
+                      onChange={e => setEditAmount(e.target.value)}
+                      className="h-8 text-xs w-24"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => {
+                        const val = parseFloat(editAmount);
+                        if (!val || val <= 0) return;
+                        onUpdatePayment?.(p.id, { amount: val, date: editDate });
+                        setEditingPaymentId(null);
+                      }}
+                    >
+                      Salvar
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setEditingPaymentId(null)}>
+                      Cancelar
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">{new Date(p.date).toLocaleDateString('pt-BR')}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-primary">{formatCurrency(p.amount)}</span>
+                      {onUpdatePayment && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-primary"
+                          onClick={() => {
+                            setEditingPaymentId(p.id);
+                            setEditAmount(String(p.amount));
+                            setEditDate(p.date);
+                          }}
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {onDeletePayment && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive"
+                          onClick={() => onDeletePayment(p.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

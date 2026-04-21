@@ -22,8 +22,8 @@ import { Plus, Home, List, Users, MessageCircle, Search, LogOut, DollarSign } fr
 type View = 'dashboard' | 'loans' | 'customers' | 'messages' | 'new-loan' | 'loan-detail' | 'edit-loan' | 'new-customer' | 'edit-customer' | 'customer-detail' | 'new-message';
 
 export default function Index() {
-  const { loans: dbLoans, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, updateStatus } = useLoansDB();
-  const { customers, addCustomer, updateCustomer, deleteCustomer, uploadPhoto } = useCustomers();
+  const { customers, addCustomer, updateCustomer, deleteCustomer, uploadPhoto, refetch: refetchCustomers } = useCustomers();
+  const { loans: dbLoans, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, updateStatus, updatePayment, deletePayment } = useLoansDB(refetchCustomers);
   const { messages, addMessage, toggleStatus, deleteMessage, sendWhatsApp } = useScheduledMessages();
   const { signOut } = useAuth();
 
@@ -214,6 +214,8 @@ export default function Index() {
             onDelete={handleDeleteLoan}
             onEdit={handleEditLoan}
             onUpdateStatus={updateStatus}
+            onUpdatePayment={updatePayment}
+            onDeletePayment={deletePayment}
           />
         )}
 
