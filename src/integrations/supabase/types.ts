@@ -56,11 +56,13 @@ export type Database = {
           borrower_name: string
           created_at: string
           customer_id: string | null
-          due_date: string
+          due_date: string | null
           id: string
+          indefinite_term: boolean
           installments: number
           interest_paid_this_month: boolean
           interest_rate: number
+          interest_type: string
           late_interest_rate: number
           loan_date: string
           loan_type: string
@@ -75,11 +77,13 @@ export type Database = {
           borrower_name: string
           created_at?: string
           customer_id?: string | null
-          due_date: string
+          due_date?: string | null
           id?: string
+          indefinite_term?: boolean
           installments?: number
           interest_paid_this_month?: boolean
           interest_rate?: number
+          interest_type?: string
           late_interest_rate?: number
           loan_date?: string
           loan_type?: string
@@ -94,11 +98,13 @@ export type Database = {
           borrower_name?: string
           created_at?: string
           customer_id?: string | null
-          due_date?: string
+          due_date?: string | null
           id?: string
+          indefinite_term?: boolean
           installments?: number
           interest_paid_this_month?: boolean
           interest_rate?: number
+          interest_type?: string
           late_interest_rate?: number
           loan_date?: string
           loan_type?: string
