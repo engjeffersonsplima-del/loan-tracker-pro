@@ -449,9 +449,20 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                         <span className={`font-semibold ${c.isLate ? 'text-destructive' : 'text-warning'}`}>
                           {formatCurrency(c.interestAmount)}
                         </span>
-                        <span className={`text-[10px] uppercase tracking-wide ${c.status === 'pago' ? 'text-primary' : 'text-muted-foreground'}`}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newStatus: 'pago' | 'pendente' = c.status === 'pago' ? 'pendente' : 'pago';
+                            setCycleOverrides(prev => ({
+                              ...prev,
+                              [c.cycleNumber]: { ...(prev[c.cycleNumber] || {}), status: newStatus },
+                            }));
+                          }}
+                          className={`text-[10px] uppercase tracking-wide cursor-pointer hover:underline ${c.status === 'pago' ? 'text-primary' : 'text-muted-foreground'}`}
+                          title="Alternar pago/pendente"
+                        >
                           {c.status === 'pago' ? '✓ Pago' : '• Pendente'}{c.isLate ? ' · atraso' : ''}
-                        </span>
+                        </button>
                       </div>
                       <Button
                         variant="ghost"
