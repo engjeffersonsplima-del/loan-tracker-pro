@@ -228,6 +228,8 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
     if (!val || val <= 0) return;
     onAddPayment(loan.id, val);
     setPayAmount('');
+    // Após registrar pagamento, força sincronização com o banco e recálculo.
+    setTimeout(() => { void handleRecalculate(); }, 300);
   };
 
   return (
