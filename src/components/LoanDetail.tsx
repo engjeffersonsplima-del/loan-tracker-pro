@@ -4,10 +4,11 @@ import { StatusBadge } from './StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Trash2, CheckCircle, Percent, Edit, Infinity as InfinityIcon, History, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Trash2, CheckCircle, Percent, Edit, Infinity as InfinityIcon, History, RotateCcw, RefreshCw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { computeInterestCyclesWithStatus, computeBalanceBreakdown, type LoanLike } from '@/lib/loanCalculations';
+import { toast } from 'sonner';
 
 interface LoanDetailProps {
   loan: Loan;
@@ -19,14 +20,17 @@ interface LoanDetailProps {
   onUpdateStatus?: (loanId: string, status: string) => void;
   onUpdatePayment?: (paymentId: string, data: { amount?: number; date?: string }) => void;
   onDeletePayment?: (paymentId: string) => void;
+  onRecalculate?: () => void | Promise<void>;
 }
 
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, onEdit, onUpdateStatus, onUpdatePayment, onDeletePayment }: LoanDetailProps) {
+export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, onEdit, onUpdateStatus, onUpdatePayment, onDeletePayment, onRecalculate }: LoanDetailProps) {
   const [payAmount, setPayAmount] = useState('');
+  const [recalcTick, setRecalcTick] = useState(0);
+  const [isRecalculating, setIsRecalculating] = useState(false);
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editDate, setEditDate] = useState('');
@@ -131,7 +135,31 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
       interestPaid,
       principalPaid,
     };
-  }, [loan, cycleOverrides, totalPaid]);
+  }, [loan, cycleOverrides, totalPaid, recalcTick]);
+
+  const handleRecalculate = async () => {
+    setIsRecalculating(true);
+    try {
+      // Repuxa pagamentos/empréstimo do banco (caso houve edições)
+      if (onRecalculate) await onRecalculate();
+      // Limpa overrides de ciclos que já não existem mais (ex: data de empréstimo mudou)
+      setCycleOverrides(prev => {
+        const validNumbers = new Set(cycles.map(c => c.cycleNumber));
+        const next: Record<number, CycleOverride> = {};
+        Object.entries(prev).forEach(([k, v]) => {
+          if (validNumbers.has(Number(k))) next[Number(k)] = v;
+        });
+        return next;
+      });
+      // Força re-execução do useMemo
+      setRecalcTick(t => t + 1);
+      toast.success('Juros e saldo recalculados!');
+    } catch (e) {
+      toast.error('Erro ao recalcular');
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
 
   const installmentValue = loan.installments > 0 ? loan.amount / loan.installments : 0;
   const installmentsPaid = installmentValue > 0 ? Math.min(loan.installments, Math.floor(totalPaid / installmentValue)) : 0;
@@ -154,6 +182,16 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
           <h2 className="text-lg font-semibold text-foreground">{loan.borrowerName}</h2>
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRecalculate}
+            disabled={isRecalculating}
+            className="text-primary"
+            title="Recalcular juros e saldo devedor"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRecalculating ? 'animate-spin' : ''}`} />
+          </Button>
           <Button variant="ghost" size="icon" onClick={() => onEdit(loan)} className="text-primary">
             <Edit className="h-4 w-4" />
           </Button>
