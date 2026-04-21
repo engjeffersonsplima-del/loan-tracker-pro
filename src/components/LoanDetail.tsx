@@ -73,7 +73,9 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
     const rawCycles = computeInterestCyclesWithStatus(loanLike);
     const DAY_MS = 1000 * 60 * 60 * 24;
     const due = loan.dueDate ? new Date(loan.dueDate).getTime() : null;
-    // Apply manual overrides: amount and/or startDate (cascading +30d to next cycles)
+    const monthlyRate = (loan.interestRate || 0) / 100;
+    const lateBonus = (loan.lateInterestRate || 0) / 100;
+    // Start from base cycles, then cascade dates from overrides.
     let cycles = rawCycles.map(c => ({ ...c }));
     for (let i = 0; i < cycles.length; i++) {
       const ov = cycleOverrides[cycles[i].cycleNumber];
@@ -81,7 +83,6 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
         const newStart = new Date(ov.startDate).getTime();
         cycles[i].startDate = new Date(newStart).toISOString().split('T')[0];
         cycles[i].endDate = new Date(newStart + 30 * DAY_MS).toISOString().split('T')[0];
-        // Cascade following cycles every 30 days
         for (let j = i + 1; j < cycles.length; j++) {
           const s = newStart + (j - i) * 30 * DAY_MS;
           cycles[j].startDate = new Date(s).toISOString().split('T')[0];
@@ -89,36 +90,78 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
         }
       }
     }
-    // Recompute isLate based on (possibly new) endDate vs due_date
     cycles = cycles.map(c => ({
       ...c,
       isLate: due !== null && new Date(c.endDate).getTime() > due,
     }));
-    // Apply amount overrides (only on completed cycles)
-    cycles = cycles.map(c => {
-      const ov = cycleOverrides[c.cycleNumber];
-      if (ov?.amount !== undefined && c.status !== 'em_curso') {
-        return { ...c, interestAmount: ov.amount };
+
+    // Recompute interest cycle-by-cycle on the LIVE outstanding balance
+    // (principal restante + juros acumulados ainda não pagos) na data do ciclo.
+    // Aplica pagamentos cronologicamente: cobrem juros pendentes primeiro, depois principal.
+    const sortedPayments = [...loan.payments]
+      .map(p => ({ amount: p.amount, ts: new Date(p.date).getTime() }))
+      .sort((a, b) => a.ts - b.ts);
+    let payIdx = 0;
+    let principal = loan.amount;
+    let pendingInterest = 0;
+    let interestPaidTotal = 0;
+    let principalPaidTotal = 0;
+
+    const cyclesStatused = cycles.map(c => {
+      if (c.status === 'em_curso') {
+        return { ...c, principalBase: principal };
       }
-      return c;
+      const ov = cycleOverrides[c.cycleNumber];
+      const cycleEnd = new Date(c.endDate).getTime();
+      const base = principal + pendingInterest; // saldo devedor total na data do ciclo
+      const rate = monthlyRate + (c.isLate ? lateBonus : 0);
+      const computedInterest = base * rate;
+      const interest = ov?.amount !== undefined ? ov.amount : computedInterest;
+      pendingInterest += interest;
+
+      // Apply payments up to this cycle end
+      while (payIdx < sortedPayments.length && sortedPayments[payIdx].ts <= cycleEnd) {
+        let pay = sortedPayments[payIdx].amount;
+        const intCover = Math.min(pay, pendingInterest);
+        pendingInterest -= intCover;
+        interestPaidTotal += intCover;
+        pay -= intCover;
+        if (pay > 0) {
+          const prinCover = Math.min(pay, principal);
+          principal -= prinCover;
+          principalPaidTotal += prinCover;
+        }
+        payIdx++;
+      }
+
+      // Status: manual override > automático (pendingInterest sobre este ciclo coberto?)
+      const autoStatus: 'pago' | 'pendente' = pendingInterest <= 0.001 ? 'pago' : 'pendente';
+      const status = ov?.status ?? autoStatus;
+      return { ...c, interestAmount: interest, principalBase: base, status };
     });
-    const totalInterest = cycles
+
+    // Drain remaining payments (after last completed cycle) onto principal/interest
+    while (payIdx < sortedPayments.length) {
+      let pay = sortedPayments[payIdx].amount;
+      const intCover = Math.min(pay, pendingInterest);
+      pendingInterest -= intCover;
+      interestPaidTotal += intCover;
+      pay -= intCover;
+      if (pay > 0) {
+        const prinCover = Math.min(pay, principal);
+        principal -= prinCover;
+        principalPaidTotal += prinCover;
+      }
+      payIdx++;
+    }
+
+    const totalInterest = cyclesStatused
       .filter(c => c.status !== 'em_curso')
       .reduce((s, c) => s + c.interestAmount, 0);
     const totalOwed = loan.amount + totalInterest;
-    const interestPaid = Math.min(totalPaid, totalInterest);
-    const principalPaid = Math.max(0, totalPaid - totalInterest);
-    const remaining = Math.max(0, totalOwed - totalPaid);
-    // Re-mark cycle paid status with override-aware interest
-    let rem = totalPaid;
-    const cyclesStatused = cycles.map(c => {
-      if (c.status === 'em_curso') return c;
-      if (rem >= c.interestAmount) {
-        rem -= c.interestAmount;
-        return { ...c, status: 'pago' as const };
-      }
-      return { ...c, status: 'pendente' as const };
-    });
+    const remaining = Math.max(0, principal + pendingInterest);
+    const interestPaid = interestPaidTotal;
+    const principalPaid = principalPaidTotal;
     const completedCycles = cyclesStatused.filter(c => c.status !== 'em_curso').length;
     const lateCyclesCount = cyclesStatused.filter(c => c.isLate && c.status !== 'em_curso').length;
     const now = new Date();
