@@ -226,12 +226,15 @@ export function useLoansDB() {
     borrowerName: string;
     amount: number;
     loanDate: string;
-    dueDate: string;
+    dueDate: string | null;
     paymentMethod: string;
     notes: string;
     installments: number;
     interestRate?: number;
     lateInterestRate?: number;
+    interestType?: 'simples' | 'composto';
+    indefiniteTerm?: boolean;
+    loanType?: 'juros_mensal' | 'parcelas_fixas';
   }) => {
     if (!user) return;
     const { error } = await supabase.from('loans').update({
@@ -244,6 +247,9 @@ export function useLoansDB() {
       installments: data.installments,
       interest_rate: data.interestRate || 0,
       late_interest_rate: data.lateInterestRate || 0,
+      interest_type: data.interestType || 'simples',
+      indefinite_term: data.indefiniteTerm || false,
+      loan_type: data.loanType || 'parcelas_fixas',
     }).eq('id', id);
     if (error) {
       toast.error('Erro ao atualizar empréstimo');
@@ -254,5 +260,17 @@ export function useLoansDB() {
     }
   }, [user, fetchLoans]);
 
-  return { loans, loading, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, refetch: fetchLoans };
+  const updateStatus = useCallback(async (id: string, status: string) => {
+    if (!user) return;
+    const { error } = await supabase.from('loans').update({ status }).eq('id', id);
+    if (error) {
+      toast.error('Erro ao alterar status');
+      console.error(error);
+    } else {
+      toast.success('Status atualizado!');
+      await fetchLoans();
+    }
+  }, [user, fetchLoans]);
+
+  return { loans, loading, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, updateStatus, refetch: fetchLoans };
 }
