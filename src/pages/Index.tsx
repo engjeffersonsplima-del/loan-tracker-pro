@@ -23,7 +23,7 @@ type View = 'dashboard' | 'loans' | 'customers' | 'messages' | 'new-loan' | 'loa
 
 export default function Index() {
   const { customers, addCustomer, updateCustomer, deleteCustomer, uploadPhoto, refetch: refetchCustomers } = useCustomers();
-  const { loans: dbLoans, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, updateStatus, updatePayment, deletePayment } = useLoansDB(refetchCustomers);
+  const { loans: dbLoans, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, updateStatus, updatePayment, deletePayment, refetch: refetchLoans } = useLoansDB(refetchCustomers);
   const { messages, addMessage, toggleStatus, deleteMessage, sendWhatsApp } = useScheduledMessages();
   const { signOut } = useAuth();
 
@@ -216,6 +216,7 @@ export default function Index() {
             onUpdateStatus={updateStatus}
             onUpdatePayment={updatePayment}
             onDeletePayment={deletePayment}
+            onRecalculate={refetchLoans}
           />
         )}
 
