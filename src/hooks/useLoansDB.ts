@@ -10,13 +10,17 @@ export interface DBLoan {
   borrower_name: string;
   amount: number;
   loan_date: string;
-  due_date: string;
+  due_date: string | null;
   payment_method: string;
   notes: string | null;
   installments: number;
   status: string;
   interest_rate: number;
   late_interest_rate: number;
+  interest_type?: string;
+  indefinite_term?: boolean;
+  loan_type?: string;
+  interest_paid_this_month?: boolean;
   payments: DBPayment[];
 }
 
@@ -27,9 +31,12 @@ export interface DBPayment {
   date: string;
 }
 
-function computeStatus(amount: number, totalPaid: number, dueDate: string): string {
+function computeStatus(amount: number, totalPaid: number, dueDate: string | null): string {
   if (totalPaid >= amount) return 'pago';
   const now = new Date();
+  if (!dueDate) {
+    return totalPaid > 0 ? 'parcial' : 'em_dia';
+  }
   const due = new Date(dueDate);
   if (totalPaid > 0 && totalPaid < amount) {
     return now > due ? 'atrasado' : 'parcial';
