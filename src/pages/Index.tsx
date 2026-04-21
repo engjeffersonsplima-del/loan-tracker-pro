@@ -22,7 +22,7 @@ import { Plus, Home, List, Users, MessageCircle, Search, LogOut, DollarSign } fr
 type View = 'dashboard' | 'loans' | 'customers' | 'messages' | 'new-loan' | 'loan-detail' | 'edit-loan' | 'new-customer' | 'edit-customer' | 'customer-detail' | 'new-message';
 
 export default function Index() {
-  const { loans: dbLoans, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid } = useLoansDB();
+  const { loans: dbLoans, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, updateStatus } = useLoansDB();
   const { customers, addCustomer, updateCustomer, deleteCustomer, uploadPhoto } = useCustomers();
   const { messages, addMessage, toggleStatus, deleteMessage, sendWhatsApp } = useScheduledMessages();
   const { signOut } = useAuth();
@@ -40,7 +40,7 @@ export default function Index() {
     borrowerName: l.borrower_name,
     amount: l.amount,
     loanDate: l.loan_date,
-    dueDate: l.due_date,
+    dueDate: l.due_date || '',
     paymentMethod: l.payment_method,
     notes: l.notes || '',
     status: l.status as any,
@@ -49,6 +49,8 @@ export default function Index() {
     lateInterestRate: l.late_interest_rate,
     loanType: (l as any).loan_type || 'parcelas_fixas',
     interestPaidThisMonth: (l as any).interest_paid_this_month || false,
+    interestType: ((l as any).interest_type as 'simples' | 'composto') || 'simples',
+    indefiniteTerm: (l as any).indefinite_term || false,
     payments: l.payments.map(p => ({ id: p.id, amount: p.amount, date: p.date })),
   }));
 
@@ -211,6 +213,7 @@ export default function Index() {
             onMarkPaid={markAsPaid}
             onDelete={handleDeleteLoan}
             onEdit={handleEditLoan}
+            onUpdateStatus={updateStatus}
           />
         )}
 

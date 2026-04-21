@@ -20,6 +20,8 @@ export interface Loan {
   lateInterestRate: number;
   loanType: 'juros_mensal' | 'parcelas_fixas';
   interestPaidThisMonth: boolean;
+  interestType: 'simples' | 'composto';
+  indefiniteTerm: boolean;
   payments: Payment[];
 }
 

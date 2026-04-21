@@ -10,13 +10,17 @@ export interface DBLoan {
   borrower_name: string;
   amount: number;
   loan_date: string;
-  due_date: string;
+  due_date: string | null;
   payment_method: string;
   notes: string | null;
   installments: number;
   status: string;
   interest_rate: number;
   late_interest_rate: number;
+  interest_type?: string;
+  indefinite_term?: boolean;
+  loan_type?: string;
+  interest_paid_this_month?: boolean;
   payments: DBPayment[];
 }
 
@@ -27,9 +31,12 @@ export interface DBPayment {
   date: string;
 }
 
-function computeStatus(amount: number, totalPaid: number, dueDate: string): string {
+function computeStatus(amount: number, totalPaid: number, dueDate: string | null): string {
   if (totalPaid >= amount) return 'pago';
   const now = new Date();
+  if (!dueDate) {
+    return totalPaid > 0 ? 'parcial' : 'em_dia';
+  }
   const due = new Date(dueDate);
   if (totalPaid > 0 && totalPaid < amount) {
     return now > due ? 'atrasado' : 'parcial';
@@ -89,18 +96,42 @@ export function useLoansDB() {
     borrowerName: string;
     amount: number;
     loanDate: string;
-    dueDate: string;
+    dueDate: string | null;
     paymentMethod: string;
     notes: string;
     installments: number;
     customerId?: string;
     interestRate?: number;
     lateInterestRate?: number;
+    interestType?: 'simples' | 'composto';
+    indefiniteTerm?: boolean;
+    loanType?: 'juros_mensal' | 'parcelas_fixas';
   }) => {
     if (!user) return;
+    // Auto-create customer if name doesn't match an existing one
+    let customerId = data.customerId || null;
+    if (!customerId) {
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('user_id', user.id)
+        .ilike('name', data.borrowerName.trim())
+        .maybeSingle();
+      if (existing) {
+        customerId = existing.id;
+      } else {
+        const { data: created } = await supabase
+          .from('customers')
+          .insert({ user_id: user.id, name: data.borrowerName.trim() })
+          .select('id')
+          .maybeSingle();
+        if (created) customerId = created.id;
+      }
+    }
+
     const { error } = await supabase.from('loans').insert({
       user_id: user.id,
-      customer_id: data.customerId || null,
+      customer_id: customerId,
       borrower_name: data.borrowerName,
       amount: data.amount,
       loan_date: data.loanDate,
@@ -111,6 +142,9 @@ export function useLoansDB() {
       status: 'em_dia',
       interest_rate: data.interestRate || 0,
       late_interest_rate: data.lateInterestRate || 0,
+      interest_type: data.interestType || 'simples',
+      indefinite_term: data.indefiniteTerm || false,
+      loan_type: data.loanType || 'parcelas_fixas',
     });
     if (error) {
       toast.error('Erro ao salvar empréstimo');
@@ -192,12 +226,15 @@ export function useLoansDB() {
     borrowerName: string;
     amount: number;
     loanDate: string;
-    dueDate: string;
+    dueDate: string | null;
     paymentMethod: string;
     notes: string;
     installments: number;
     interestRate?: number;
     lateInterestRate?: number;
+    interestType?: 'simples' | 'composto';
+    indefiniteTerm?: boolean;
+    loanType?: 'juros_mensal' | 'parcelas_fixas';
   }) => {
     if (!user) return;
     const { error } = await supabase.from('loans').update({
@@ -210,6 +247,9 @@ export function useLoansDB() {
       installments: data.installments,
       interest_rate: data.interestRate || 0,
       late_interest_rate: data.lateInterestRate || 0,
+      interest_type: data.interestType || 'simples',
+      indefinite_term: data.indefiniteTerm || false,
+      loan_type: data.loanType || 'parcelas_fixas',
     }).eq('id', id);
     if (error) {
       toast.error('Erro ao atualizar empréstimo');
@@ -220,5 +260,17 @@ export function useLoansDB() {
     }
   }, [user, fetchLoans]);
 
-  return { loans, loading, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, refetch: fetchLoans };
+  const updateStatus = useCallback(async (id: string, status: string) => {
+    if (!user) return;
+    const { error } = await supabase.from('loans').update({ status }).eq('id', id);
+    if (error) {
+      toast.error('Erro ao alterar status');
+      console.error(error);
+    } else {
+      toast.success('Status atualizado!');
+      await fetchLoans();
+    }
+  }, [user, fetchLoans]);
+
+  return { loans, loading, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, updateStatus, refetch: fetchLoans };
 }
