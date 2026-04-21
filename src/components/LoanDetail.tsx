@@ -178,7 +178,22 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
       interestPaid,
       principalPaid,
     };
-  }, [loan, cycleOverrides, totalPaid, recalcTick]);
+    // Reagir a mudanças finas: cada pagamento (valor + data), datas do empréstimo,
+    // taxas, tipo de juros e overrides de ciclos.
+  }, [
+    loan.id,
+    loan.amount,
+    loan.loanDate,
+    loan.dueDate,
+    loan.status,
+    loan.interestRate,
+    loan.lateInterestRate,
+    loan.interestType,
+    // serializa pagamentos para detectar edição de data ou valor individual
+    JSON.stringify(loan.payments.map(p => ({ a: p.amount, d: p.date }))),
+    cycleOverrides,
+    recalcTick,
+  ]);
 
   const handleRecalculate = async () => {
     setIsRecalculating(true);
@@ -213,6 +228,8 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
     if (!val || val <= 0) return;
     onAddPayment(loan.id, val);
     setPayAmount('');
+    // Após registrar pagamento, força sincronização com o banco e recálculo.
+    setTimeout(() => { void handleRecalculate(); }, 300);
   };
 
   return (
@@ -417,6 +434,9 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                           if (editCycleDate) next.startDate = editCycleDate;
                           setCycleOverrides(prev => ({ ...prev, [c.cycleNumber]: next }));
                           setEditingCycle(null);
+                          // Força recálculo em cascata de todos os ciclos seguintes
+                          setRecalcTick(t => t + 1);
+                          toast.success('Ciclo atualizado e recalculado');
                         }}
                       >
                         Salvar
@@ -531,6 +551,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                         if (!val || val <= 0) return;
                         onUpdatePayment?.(p.id, { amount: val, date: editDate });
                         setEditingPaymentId(null);
+                          setTimeout(() => { void handleRecalculate(); }, 300);
                       }}
                     >
                       Salvar
@@ -563,7 +584,10 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-destructive"
-                          onClick={() => onDeletePayment(p.id)}
+                          onClick={() => {
+                            onDeletePayment(p.id);
+                            setTimeout(() => { void handleRecalculate(); }, 300);
+                          }}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
