@@ -35,7 +35,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
   const [editAmount, setEditAmount] = useState('');
   const [editDate, setEditDate] = useState('');
   const overrideKey = `loan-cycle-overrides:${loan.id}`;
-  type CycleOverride = { amount?: number; startDate?: string };
+  type CycleOverride = { amount?: number; startDate?: string; status?: 'pago' | 'pendente' };
   const [cycleOverrides, setCycleOverrides] = useState<Record<number, CycleOverride>>(() => {
     try {
       const raw = localStorage.getItem(overrideKey);
