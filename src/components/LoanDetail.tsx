@@ -67,12 +67,37 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
       payments: loan.payments.map(p => ({ amount: p.amount, date: p.date })),
     };
     const rawCycles = computeInterestCyclesWithStatus(loanLike);
-    // Apply manual overrides to cycle interest amounts
-    const cycles = rawCycles.map(c =>
-      cycleOverrides[c.cycleNumber] !== undefined && c.status !== 'em_curso'
-        ? { ...c, interestAmount: cycleOverrides[c.cycleNumber] }
-        : c
-    );
+    const DAY_MS = 1000 * 60 * 60 * 24;
+    const due = loan.dueDate ? new Date(loan.dueDate).getTime() : null;
+    // Apply manual overrides: amount and/or startDate (cascading +30d to next cycles)
+    let cycles = rawCycles.map(c => ({ ...c }));
+    for (let i = 0; i < cycles.length; i++) {
+      const ov = cycleOverrides[cycles[i].cycleNumber];
+      if (ov?.startDate) {
+        const newStart = new Date(ov.startDate).getTime();
+        cycles[i].startDate = new Date(newStart).toISOString().split('T')[0];
+        cycles[i].endDate = new Date(newStart + 30 * DAY_MS).toISOString().split('T')[0];
+        // Cascade following cycles every 30 days
+        for (let j = i + 1; j < cycles.length; j++) {
+          const s = newStart + (j - i) * 30 * DAY_MS;
+          cycles[j].startDate = new Date(s).toISOString().split('T')[0];
+          cycles[j].endDate = new Date(s + 30 * DAY_MS).toISOString().split('T')[0];
+        }
+      }
+    }
+    // Recompute isLate based on (possibly new) endDate vs due_date
+    cycles = cycles.map(c => ({
+      ...c,
+      isLate: due !== null && new Date(c.endDate).getTime() > due,
+    }));
+    // Apply amount overrides (only on completed cycles)
+    cycles = cycles.map(c => {
+      const ov = cycleOverrides[c.cycleNumber];
+      if (ov?.amount !== undefined && c.status !== 'em_curso') {
+        return { ...c, interestAmount: ov.amount };
+      }
+      return c;
+    });
     const totalInterest = cycles
       .filter(c => c.status !== 'em_curso')
       .reduce((s, c) => s + c.interestAmount, 0);
