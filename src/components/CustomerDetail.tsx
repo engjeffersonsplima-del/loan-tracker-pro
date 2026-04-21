@@ -4,7 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { ArrowLeft, Trash2, Phone, MapPin, CreditCard, MessageCircle, Edit } from 'lucide-react';
+import { ArrowLeft, Trash2, Phone, MapPin, CreditCard, MessageCircle, Edit, Download, DollarSign } from 'lucide-react';
+import { DBLoan } from '@/hooks/useLoansDB';
+import { computeBalanceBreakdown } from '@/lib/loanCalculations';
+import { toast } from 'sonner';
 
 interface CustomerDetailProps {
   customer: Customer;
@@ -12,10 +15,62 @@ interface CustomerDetailProps {
   onDelete: (id: string) => void;
   onEdit: (customer: Customer) => void;
   onWhatsApp: (phone: string, message: string) => void;
+  loans?: DBLoan[];
 }
 
-export function CustomerDetail({ customer, onBack, onDelete, onEdit, onWhatsApp }: CustomerDetailProps) {
+function formatCurrency(value: number) {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+export function CustomerDetail({ customer, onBack, onDelete, onEdit, onWhatsApp, loans = [] }: CustomerDetailProps) {
   const [photoOpen, setPhotoOpen] = useState(false);
+
+  const customerLoans = loans.filter(
+    l => l.customer_id === customer.id || l.borrower_name.toLowerCase() === customer.name.toLowerCase()
+  );
+  const totalOwed = customerLoans
+    .filter(l => l.status !== 'pago')
+    .reduce((sum, l) => sum + computeBalanceBreakdown(l).remaining, 0);
+
+  const handleDownloadPhoto = async () => {
+    if (!customer.photo_url) return;
+    try {
+      const res = await fetch(customer.photo_url);
+      const blob = await res.blob();
+      // Convert to JPG via canvas
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      const url = URL.createObjectURL(blob);
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob((jpgBlob) => {
+          if (!jpgBlob) return;
+          const link = document.createElement('a');
+          const safeName = customer.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+          link.download = `${safeName}.jpg`;
+          link.href = URL.createObjectURL(jpgBlob);
+          link.click();
+          URL.revokeObjectURL(link.href);
+          URL.revokeObjectURL(url);
+          toast.success('Imagem baixada');
+        }, 'image/jpeg', 0.92);
+      };
+      img.onerror = () => {
+        toast.error('Erro ao baixar imagem');
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    } catch {
+      toast.error('Erro ao baixar imagem');
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -48,17 +103,43 @@ export function CustomerDetail({ customer, onBack, onDelete, onEdit, onWhatsApp 
         </Avatar>
       </div>
 
+      {customer.photo_url && (
+        <div className="flex justify-center">
+          <Button variant="outline" size="sm" onClick={handleDownloadPhoto} className="rounded-xl">
+            <Download className="h-4 w-4 mr-2" />
+            Baixar imagem (JPG)
+          </Button>
+        </div>
+      )}
+
       <Dialog open={photoOpen} onOpenChange={setPhotoOpen}>
         <DialogContent className="max-w-sm p-2 bg-background">
           {customer.photo_url && (
-            <img
-              src={customer.photo_url}
-              alt={customer.name}
-              className="w-full h-auto rounded-lg object-contain max-h-[70vh]"
-            />
+            <>
+              <img
+                src={customer.photo_url}
+                alt={customer.name}
+                className="w-full h-auto rounded-lg object-contain max-h-[70vh]"
+              />
+              <Button onClick={handleDownloadPhoto} className="w-full mt-2 rounded-xl" variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Baixar imagem (JPG)
+              </Button>
+            </>
           )}
         </DialogContent>
       </Dialog>
+
+      {totalOwed > 0 && (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="p-4 flex items-center justify-between">
+            <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <DollarSign className="h-3.5 w-3.5" /> Total devido (com juros)
+            </span>
+            <span className="text-base font-bold text-destructive">{formatCurrency(totalOwed)}</span>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-border">
         <CardContent className="p-4 space-y-3">
