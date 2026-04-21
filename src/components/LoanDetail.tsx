@@ -4,9 +4,10 @@ import { StatusBadge } from './StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Trash2, CheckCircle, Percent, Edit, Infinity as InfinityIcon } from 'lucide-react';
+import { ArrowLeft, Trash2, CheckCircle, Percent, Edit, Infinity as InfinityIcon, History } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
+import { computeInterestCyclesWithStatus, computeBalanceBreakdown, type LoanLike } from '@/lib/loanCalculations';
 
 interface LoanDetailProps {
   loan: Loan;
@@ -31,27 +32,36 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
   const [editDate, setEditDate] = useState('');
   const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0);
 
-  const { remaining, totalWithInterest, monthsElapsed, accruedInterest, isOverdue } = useMemo(() => {
+  const { remaining, totalWithInterest, completedCycles, accruedInterest, isOverdue, cycles, lateCyclesCount, interestPaid, principalPaid } = useMemo(() => {
+    const loanLike: LoanLike = {
+      amount: loan.amount,
+      loan_date: loan.loanDate,
+      due_date: loan.dueDate || null,
+      status: loan.status,
+      interest_rate: loan.interestRate,
+      late_interest_rate: loan.lateInterestRate,
+      interest_type: loan.interestType,
+      payments: loan.payments.map(p => ({ amount: p.amount, date: p.date })),
+    };
+    const cycles = computeInterestCyclesWithStatus(loanLike);
+    const breakdown = computeBalanceBreakdown(loanLike);
+    const completedCycles = cycles.filter(c => c.status !== 'em_curso').length;
+    const lateCyclesCount = cycles.filter(c => c.isLate && c.status !== 'em_curso').length;
     const now = new Date();
-    const start = new Date(loan.loanDate);
     const due = loan.dueDate ? new Date(loan.dueDate) : null;
     const isOverdue = !!due && now > due && loan.status !== 'pago';
-    // Months elapsed since loan start (30-day cycles)
-    const days = Math.max(0, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
-    const monthsElapsed = Math.floor(days / 30);
-    const monthlyRate = loan.interestRate / 100; // taxa mensal
-    const lateBonus = isOverdue ? loan.lateInterestRate / 100 : 0;
-    const effectiveRate = monthlyRate + lateBonus;
-    let totalWithInterest = loan.amount;
-    if (loan.interestType === 'composto') {
-      totalWithInterest = loan.amount * Math.pow(1 + effectiveRate, monthsElapsed);
-    } else {
-      totalWithInterest = loan.amount * (1 + effectiveRate * monthsElapsed);
-    }
-    const accruedInterest = totalWithInterest - loan.amount;
-    const remaining = Math.max(0, totalWithInterest - totalPaid);
-    return { remaining, totalWithInterest, monthsElapsed, accruedInterest, isOverdue };
-  }, [loan, totalPaid]);
+    return {
+      remaining: breakdown.remaining,
+      totalWithInterest: breakdown.totalOwed,
+      completedCycles,
+      accruedInterest: breakdown.totalInterest,
+      isOverdue,
+      cycles,
+      lateCyclesCount,
+      interestPaid: breakdown.interestPaid,
+      principalPaid: breakdown.principalPaid,
+    };
+  }, [loan]);
 
   const installmentValue = loan.installments > 0 ? loan.amount / loan.installments : 0;
   const installmentsPaid = installmentValue > 0 ? Math.min(loan.installments, Math.floor(totalPaid / installmentValue)) : 0;
@@ -128,21 +138,21 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                 </div>
               )}
               <div className="flex justify-between">
-                <span className="text-xs text-muted-foreground">Meses decorridos</span>
-                <span className="text-xs font-medium">{monthsElapsed}</span>
+                <span className="text-xs text-muted-foreground">Ciclos de 30 dias concluídos</span>
+                <span className="text-xs font-medium">{completedCycles}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-xs text-muted-foreground">Juros acumulados</span>
                 <span className="text-xs font-medium text-warning">{formatCurrency(accruedInterest)}</span>
               </div>
-              {isOverdue && (
+              {isOverdue && lateCyclesCount > 0 && (
                 <div className="flex justify-between border-t border-border pt-1">
-                  <span className="text-xs text-destructive font-medium">⚠️ Em atraso — taxa majorada</span>
+                  <span className="text-xs text-destructive font-medium">⚠️ {lateCyclesCount} {lateCyclesCount === 1 ? 'ciclo' : 'ciclos'} em atraso</span>
                   <span className="text-xs font-bold text-destructive">+{loan.lateInterestRate}%</span>
                 </div>
               )}
               <div className="flex justify-between border-t border-border pt-1">
-                <span className="text-xs text-muted-foreground font-medium">Total devido hoje</span>
+                <span className="text-xs text-muted-foreground font-medium">{isOverdue ? 'Total devido hoje' : 'Valor devido hoje'}</span>
                 <span className="text-xs font-bold text-foreground">{formatCurrency(totalWithInterest)}</span>
               </div>
             </div>
