@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Loan } from '@/types/loan';
 import { StatusBadge } from './StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Trash2, CheckCircle, Percent, Edit, Infinity as InfinityIcon, History } from 'lucide-react';
+import { ArrowLeft, Trash2, CheckCircle, Percent, Edit, Infinity as InfinityIcon, History, RotateCcw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { computeInterestCyclesWithStatus, computeBalanceBreakdown, type LoanLike } from '@/lib/loanCalculations';
@@ -30,6 +30,20 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editDate, setEditDate] = useState('');
+  const overrideKey = `loan-cycle-overrides:${loan.id}`;
+  const [cycleOverrides, setCycleOverrides] = useState<Record<number, number>>(() => {
+    try {
+      const raw = localStorage.getItem(overrideKey);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [editingCycle, setEditingCycle] = useState<number | null>(null);
+  const [editCycleAmount, setEditCycleAmount] = useState('');
+  useEffect(() => {
+    try { localStorage.setItem(overrideKey, JSON.stringify(cycleOverrides)); } catch {}
+  }, [cycleOverrides, overrideKey]);
   const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0);
 
   const { remaining, totalWithInterest, completedCycles, accruedInterest, isOverdue, cycles, lateCyclesCount, interestPaid, principalPaid } = useMemo(() => {
@@ -43,25 +57,47 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
       interest_type: loan.interestType,
       payments: loan.payments.map(p => ({ amount: p.amount, date: p.date })),
     };
-    const cycles = computeInterestCyclesWithStatus(loanLike);
-    const breakdown = computeBalanceBreakdown(loanLike);
-    const completedCycles = cycles.filter(c => c.status !== 'em_curso').length;
-    const lateCyclesCount = cycles.filter(c => c.isLate && c.status !== 'em_curso').length;
+    const rawCycles = computeInterestCyclesWithStatus(loanLike);
+    // Apply manual overrides to cycle interest amounts
+    const cycles = rawCycles.map(c =>
+      cycleOverrides[c.cycleNumber] !== undefined && c.status !== 'em_curso'
+        ? { ...c, interestAmount: cycleOverrides[c.cycleNumber] }
+        : c
+    );
+    const totalInterest = cycles
+      .filter(c => c.status !== 'em_curso')
+      .reduce((s, c) => s + c.interestAmount, 0);
+    const totalOwed = loan.amount + totalInterest;
+    const interestPaid = Math.min(totalPaid, totalInterest);
+    const principalPaid = Math.max(0, totalPaid - totalInterest);
+    const remaining = Math.max(0, totalOwed - totalPaid);
+    // Re-mark cycle paid status with override-aware interest
+    let rem = totalPaid;
+    const cyclesStatused = cycles.map(c => {
+      if (c.status === 'em_curso') return c;
+      if (rem >= c.interestAmount) {
+        rem -= c.interestAmount;
+        return { ...c, status: 'pago' as const };
+      }
+      return { ...c, status: 'pendente' as const };
+    });
+    const completedCycles = cyclesStatused.filter(c => c.status !== 'em_curso').length;
+    const lateCyclesCount = cyclesStatused.filter(c => c.isLate && c.status !== 'em_curso').length;
     const now = new Date();
     const due = loan.dueDate ? new Date(loan.dueDate) : null;
     const isOverdue = !!due && now > due && loan.status !== 'pago';
     return {
-      remaining: breakdown.remaining,
-      totalWithInterest: breakdown.totalOwed,
+      remaining,
+      totalWithInterest: totalOwed,
       completedCycles,
-      accruedInterest: breakdown.totalInterest,
+      accruedInterest: totalInterest,
       isOverdue,
-      cycles,
+      cycles: cyclesStatused,
       lateCyclesCount,
-      interestPaid: breakdown.interestPaid,
-      principalPaid: breakdown.principalPaid,
+      interestPaid,
+      principalPaid,
     };
-  }, [loan]);
+  }, [loan, cycleOverrides, totalPaid]);
 
   const installmentValue = loan.installments > 0 ? loan.amount / loan.installments : 0;
   const installmentsPaid = installmentValue > 0 ? Math.min(loan.installments, Math.floor(totalPaid / installmentValue)) : 0;
@@ -152,8 +188,8 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                 </div>
               )}
               <div className="flex justify-between border-t border-border pt-1">
-                <span className="text-xs text-muted-foreground font-medium">{isOverdue ? 'Total devido hoje' : 'Valor devido hoje'}</span>
-                <span className="text-xs font-bold text-foreground">{formatCurrency(totalWithInterest)}</span>
+                <span className="text-xs text-muted-foreground font-medium">Valor devido hoje (saldo)</span>
+                <span className="text-xs font-bold text-foreground">{formatCurrency(remaining)}</span>
               </div>
             </div>
           )}
@@ -229,21 +265,86 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
           </h3>
           <div className="space-y-1">
             {cycles.filter(c => c.status !== 'em_curso').map(c => (
-              <div key={c.cycleNumber} className="py-2 px-3 rounded-md bg-accent/30 border border-border flex justify-between items-center text-xs">
-                <div className="flex flex-col">
-                  <span className="font-medium text-foreground">Ciclo {c.cycleNumber}</span>
-                  <span className="text-muted-foreground">
-                    {new Date(c.startDate).toLocaleDateString('pt-BR')} → {new Date(c.endDate).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className={`font-semibold ${c.isLate ? 'text-destructive' : 'text-warning'}`}>
-                    {formatCurrency(c.interestAmount)}
-                  </span>
-                  <span className={`text-[10px] uppercase tracking-wide ${c.status === 'pago' ? 'text-primary' : 'text-muted-foreground'}`}>
-                    {c.status === 'pago' ? '✓ Pago' : '• Pendente'}{c.isLate ? ' · atraso' : ''}
-                  </span>
-                </div>
+              <div key={c.cycleNumber} className="py-2 px-3 rounded-md bg-accent/30 border border-border text-xs">
+                {editingCycle === c.cycleNumber ? (
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-foreground flex-shrink-0">Ciclo {c.cycleNumber}</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editCycleAmount}
+                      onChange={e => setEditCycleAmount(e.target.value)}
+                      className="h-8 text-xs flex-1"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => {
+                        const val = parseFloat(editCycleAmount);
+                        if (isNaN(val) || val < 0) return;
+                        setCycleOverrides(prev => ({ ...prev, [c.cycleNumber]: val }));
+                        setEditingCycle(null);
+                      }}
+                    >
+                      Salvar
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setEditingCycle(null)}>
+                      Cancelar
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-foreground">
+                        Ciclo {c.cycleNumber}
+                        {cycleOverrides[c.cycleNumber] !== undefined && (
+                          <span className="ml-1 text-[10px] text-primary">(editado)</span>
+                        )}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {new Date(c.startDate).toLocaleDateString('pt-BR')} → {new Date(c.endDate).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-col items-end">
+                        <span className={`font-semibold ${c.isLate ? 'text-destructive' : 'text-warning'}`}>
+                          {formatCurrency(c.interestAmount)}
+                        </span>
+                        <span className={`text-[10px] uppercase tracking-wide ${c.status === 'pago' ? 'text-primary' : 'text-muted-foreground'}`}>
+                          {c.status === 'pago' ? '✓ Pago' : '• Pendente'}{c.isLate ? ' · atraso' : ''}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-primary"
+                        onClick={() => {
+                          setEditingCycle(c.cycleNumber);
+                          setEditCycleAmount(String(c.interestAmount.toFixed(2)));
+                        }}
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                      {cycleOverrides[c.cycleNumber] !== undefined && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground"
+                          title="Restaurar valor calculado"
+                          onClick={() => {
+                            setCycleOverrides(prev => {
+                              const next = { ...prev };
+                              delete next[c.cycleNumber];
+                              return next;
+                            });
+                          }}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
