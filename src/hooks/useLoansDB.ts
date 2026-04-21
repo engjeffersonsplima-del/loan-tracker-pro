@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
+import { computeLoansStats } from '@/lib/loanCalculations';
 
 export interface DBLoan {
   id: string;
@@ -242,32 +243,7 @@ export function useLoansDB(onCustomerCreated?: () => void) {
   }, [user, loans, fetchLoans]);
 
   const stats = useMemo(() => {
-    const totalLent = loans.reduce((s, l) => s + l.amount, 0);
-    const totalReceived = loans.reduce((s, l) => s + l.payments.reduce((ps, p) => ps + p.amount, 0), 0);
-    // Compute total owed including accrued interest (30-day cycles)
-    const now = Date.now();
-    const totalOwedWithInterest = loans.reduce((sum, l) => {
-      const start = new Date(l.loan_date).getTime();
-      const days = Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
-      const months = Math.floor(days / 30);
-      const due = l.due_date ? new Date(l.due_date).getTime() : null;
-      const isOverdue = due ? now > due : false;
-      const monthlyRate = (l.interest_rate || 0) / 100;
-      const lateBonus = isOverdue ? (l.late_interest_rate || 0) / 100 : 0;
-      const rate = monthlyRate + lateBonus;
-      const totalWithInterest = l.interest_type === 'composto'
-        ? l.amount * Math.pow(1 + rate, months)
-        : l.amount * (1 + rate * months);
-      // For paid loans, the owed amount is what was actually paid (totalReceived covers it)
-      if (l.status === 'pago') {
-        const loanPaid = l.payments.reduce((s, p) => s + p.amount, 0);
-        return sum + loanPaid;
-      }
-      return sum + totalWithInterest;
-    }, 0);
-    const totalPending = Math.max(0, totalOwedWithInterest - totalReceived);
-    const overdue = loans.filter(l => l.status === 'atrasado').length;
-    return { totalLent, totalReceived, totalPending, overdue, totalOwedWithInterest };
+    return computeLoansStats(loans);
   }, [loans]);
 
   const updateLoan = useCallback(async (id: string, data: {
