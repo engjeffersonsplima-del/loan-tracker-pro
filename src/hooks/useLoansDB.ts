@@ -247,7 +247,6 @@ export function useLoansDB(onCustomerCreated?: () => void) {
     // Compute total owed including accrued interest (30-day cycles)
     const now = Date.now();
     const totalOwedWithInterest = loans.reduce((sum, l) => {
-      if (l.status === 'pago') return sum + l.amount;
       const start = new Date(l.loan_date).getTime();
       const days = Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
       const months = Math.floor(days / 30);
@@ -256,10 +255,15 @@ export function useLoansDB(onCustomerCreated?: () => void) {
       const monthlyRate = (l.interest_rate || 0) / 100;
       const lateBonus = isOverdue ? (l.late_interest_rate || 0) / 100 : 0;
       const rate = monthlyRate + lateBonus;
-      const total = l.interest_type === 'composto'
+      const totalWithInterest = l.interest_type === 'composto'
         ? l.amount * Math.pow(1 + rate, months)
         : l.amount * (1 + rate * months);
-      return sum + total;
+      // For paid loans, the owed amount is what was actually paid (totalReceived covers it)
+      if (l.status === 'pago') {
+        const loanPaid = l.payments.reduce((s, p) => s + p.amount, 0);
+        return sum + loanPaid;
+      }
+      return sum + totalWithInterest;
     }, 0);
     const totalPending = Math.max(0, totalOwedWithInterest - totalReceived);
     const overdue = loans.filter(l => l.status === 'atrasado').length;
