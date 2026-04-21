@@ -188,8 +188,8 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                 </div>
               )}
               <div className="flex justify-between border-t border-border pt-1">
-                <span className="text-xs text-muted-foreground font-medium">{isOverdue ? 'Total devido hoje' : 'Valor devido hoje'}</span>
-                <span className="text-xs font-bold text-foreground">{formatCurrency(totalWithInterest)}</span>
+                <span className="text-xs text-muted-foreground font-medium">Valor devido hoje (saldo)</span>
+                <span className="text-xs font-bold text-foreground">{formatCurrency(remaining)}</span>
               </div>
             </div>
           )}
