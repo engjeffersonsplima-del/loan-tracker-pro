@@ -167,61 +167,56 @@ export function calcularEmprestimoCompleto(
 export function computeInterestCycles(loan: LoanLike, now: number = Date.now()): InterestCycle[] {
   const start = new Date(loan.loan_date).getTime();
   const due = loan.due_date ? new Date(loan.due_date).getTime() : null;
-  const monthlyRate = (loan.interest_rate || 0) / 100;
-  const lateBonus = (loan.late_interest_rate || 0) / 100;
-  const isCompound = loan.interest_type === 'composto';
-
   const totalDays = Math.max(0, Math.floor((now - start) / DAY_MS));
   const completedCycles = Math.floor(totalDays / 30);
-  const cycles: InterestCycle[] = [];
 
-  // Sort payments chronologically (older first).
-  const payments = [...loan.payments]
-    .map(p => ({ amount: p.amount, ts: new Date(p.date).getTime() }))
+  // Reproduz os ciclos completos calculados pelo motor orientado a eventos,
+  // garantindo base de cálculo sobre saldo vivo (principal + juros pendentes).
+  const periodEvents: { ts: number; juros: number; saldoBase: number; isLate: boolean }[] = [];
+  // Mini-replay focado apenas em períodos completos:
+  const monthlyRate = (loan.interest_rate || 0) / 100;
+  const lateBonus = (loan.late_interest_rate || 0) / 100;
+  const sortedPayments = [...loan.payments]
+    .map(p => ({ ts: new Date(p.date).getTime(), amount: p.amount }))
     .sort((a, b) => a.ts - b.ts);
 
   let principal = loan.amount;
-  let unpaidInterest = 0; // for compound mode capitalization
-  let pendingInterestForAlloc = 0; // accrued interest not yet covered by payments
+  let pendingInterest = 0;
+  let payIdx = 0;
 
   for (let i = 0; i < completedCycles; i++) {
     const cStart = start + i * 30 * DAY_MS;
     const cEnd = start + (i + 1) * 30 * DAY_MS;
     const isLate = due !== null && cEnd > due;
+    const base = principal + pendingInterest;
     const rate = monthlyRate + (isLate ? lateBonus : 0);
-    const base = isCompound ? principal + unpaidInterest : principal;
-    const interest = base * rate;
+    const juros = base * rate;
+    pendingInterest += juros;
+    periodEvents.push({ ts: cEnd, juros, saldoBase: base, isLate });
 
-    cycles.push({
-      cycleNumber: i + 1,
-      startDate: new Date(cStart).toISOString().split('T')[0],
-      endDate: new Date(cEnd).toISOString().split('T')[0],
-      interestAmount: interest,
-      status: 'pendente',
-      isLate,
-      principalBase: principal,
-    });
-
-    pendingInterestForAlloc += interest;
-
-    // Apply any payments that occurred up through this cycle's end.
-    while (payments.length && payments[0].ts <= cEnd) {
-      let pay = payments.shift()!.amount;
-      // 1) cover accrued interest first
-      const interestCover = Math.min(pay, pendingInterestForAlloc);
-      pendingInterestForAlloc -= interestCover;
-      pay -= interestCover;
-      // 2) remainder reduces principal
+    // aplica pagamentos cujas datas caem até o fim do ciclo
+    while (payIdx < sortedPayments.length && sortedPayments[payIdx].ts <= cEnd) {
+      let pay = sortedPayments[payIdx].amount;
+      const intCover = Math.min(pay, pendingInterest);
+      pendingInterest -= intCover;
+      pay -= intCover;
       if (pay > 0) {
         principal = Math.max(0, principal - pay);
       }
+      payIdx++;
     }
-
-    // For compound mode, any interest not yet paid capitalizes into base.
-    unpaidInterest = isCompound ? pendingInterestForAlloc : 0;
   }
 
-  // Current in-progress cycle (informational, zero interest until it completes)
+  const cycles: InterestCycle[] = periodEvents.map((e, i) => ({
+    cycleNumber: i + 1,
+    startDate: new Date(start + i * 30 * DAY_MS).toISOString().split('T')[0],
+    endDate: new Date(e.ts).toISOString().split('T')[0],
+    interestAmount: e.juros,
+    status: 'pendente',
+    isLate: e.isLate,
+    principalBase: e.saldoBase,
+  }));
+
   if (totalDays % 30 !== 0 || completedCycles === 0) {
     const cStart = start + completedCycles * 30 * DAY_MS;
     const cEnd = cStart + 30 * DAY_MS;
@@ -233,7 +228,7 @@ export function computeInterestCycles(loan: LoanLike, now: number = Date.now()):
       interestAmount: 0,
       status: 'em_curso',
       isLate,
-      principalBase: principal,
+      principalBase: principal + pendingInterest,
     });
   }
 
