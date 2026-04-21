@@ -86,7 +86,31 @@ export function useLoansDB(onCustomerCreated?: () => void) {
 
     setLoans(enriched);
     setLoading(false);
-  }, [user]);
+
+    // Backfill: ensure every borrower_name in loans exists in customers table
+    const { data: existingCustomers } = await supabase
+      .from('customers')
+      .select('id, name')
+      .eq('user_id', user.id);
+
+    const existingNames = new Set(
+      (existingCustomers || []).map(c => c.name.trim().toLowerCase())
+    );
+    const loanNames = new Set(
+      (loansData || []).map(l => l.borrower_name.trim()).filter(Boolean)
+    );
+    const missingNames = Array.from(loanNames).filter(
+      n => !existingNames.has(n.toLowerCase())
+    );
+
+    if (missingNames.length > 0) {
+      const toInsert = missingNames.map(name => ({ user_id: user.id, name }));
+      const { error: insertErr } = await supabase.from('customers').insert(toInsert);
+      if (!insertErr) {
+        onCustomerCreated?.();
+      }
+    }
+  }, [user, onCustomerCreated]);
 
   useEffect(() => {
     fetchLoans();
