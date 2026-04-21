@@ -44,7 +44,7 @@ function computeStatus(amount: number, totalPaid: number, dueDate: string | null
   return now > due ? 'atrasado' : 'em_dia';
 }
 
-export function useLoansDB() {
+export function useLoansDB(onCustomerCreated?: () => void) {
   const { user } = useAuth();
   const [loans, setLoans] = useState<DBLoan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +125,10 @@ export function useLoansDB() {
           .insert({ user_id: user.id, name: data.borrowerName.trim() })
           .select('id')
           .maybeSingle();
-        if (created) customerId = created.id;
+        if (created) {
+          customerId = created.id;
+          onCustomerCreated?.();
+        }
       }
     }
 
@@ -153,7 +156,7 @@ export function useLoansDB() {
       toast.success('Empréstimo salvo!');
       await fetchLoans();
     }
-  }, [user, fetchLoans]);
+  }, [user, fetchLoans, onCustomerCreated]);
 
   const deleteLoan = useCallback(async (id: string) => {
     if (!user) return;
@@ -289,5 +292,29 @@ export function useLoansDB() {
     }
   }, [user, fetchLoans]);
 
-  return { loans, loading, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, updateStatus, refetch: fetchLoans };
+  const updatePayment = useCallback(async (paymentId: string, data: { amount?: number; date?: string }) => {
+    if (!user) return;
+    const { error } = await supabase.from('payments').update(data).eq('id', paymentId);
+    if (error) {
+      toast.error('Erro ao atualizar pagamento');
+      console.error(error);
+    } else {
+      toast.success('Pagamento atualizado!');
+      await fetchLoans();
+    }
+  }, [user, fetchLoans]);
+
+  const deletePayment = useCallback(async (paymentId: string) => {
+    if (!user) return;
+    const { error } = await supabase.from('payments').delete().eq('id', paymentId);
+    if (error) {
+      toast.error('Erro ao excluir pagamento');
+      console.error(error);
+    } else {
+      toast.success('Pagamento excluído!');
+      await fetchLoans();
+    }
+  }, [user, fetchLoans]);
+
+  return { loans, loading, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, updateStatus, updatePayment, deletePayment, refetch: fetchLoans };
 }
