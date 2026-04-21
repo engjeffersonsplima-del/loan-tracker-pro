@@ -96,18 +96,42 @@ export function useLoansDB() {
     borrowerName: string;
     amount: number;
     loanDate: string;
-    dueDate: string;
+    dueDate: string | null;
     paymentMethod: string;
     notes: string;
     installments: number;
     customerId?: string;
     interestRate?: number;
     lateInterestRate?: number;
+    interestType?: 'simples' | 'composto';
+    indefiniteTerm?: boolean;
+    loanType?: 'juros_mensal' | 'parcelas_fixas';
   }) => {
     if (!user) return;
+    // Auto-create customer if name doesn't match an existing one
+    let customerId = data.customerId || null;
+    if (!customerId) {
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('user_id', user.id)
+        .ilike('name', data.borrowerName.trim())
+        .maybeSingle();
+      if (existing) {
+        customerId = existing.id;
+      } else {
+        const { data: created } = await supabase
+          .from('customers')
+          .insert({ user_id: user.id, name: data.borrowerName.trim() })
+          .select('id')
+          .maybeSingle();
+        if (created) customerId = created.id;
+      }
+    }
+
     const { error } = await supabase.from('loans').insert({
       user_id: user.id,
-      customer_id: data.customerId || null,
+      customer_id: customerId,
       borrower_name: data.borrowerName,
       amount: data.amount,
       loan_date: data.loanDate,
@@ -118,6 +142,9 @@ export function useLoansDB() {
       status: 'em_dia',
       interest_rate: data.interestRate || 0,
       late_interest_rate: data.lateInterestRate || 0,
+      interest_type: data.interestType || 'simples',
+      indefinite_term: data.indefiniteTerm || false,
+      loan_type: data.loanType || 'parcelas_fixas',
     });
     if (error) {
       toast.error('Erro ao salvar empréstimo');
