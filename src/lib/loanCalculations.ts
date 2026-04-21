@@ -16,14 +16,22 @@ export interface InterestCycle {
   interestAmount: number;
   status: 'pago' | 'pendente' | 'em_curso';
   isLate: boolean;
+  /** Principal outstanding at the start of this cycle (after prior payments). */
+  principalBase?: number;
 }
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
 /**
  * Compute interest cycles (30-day periods) since loan start.
- * Only COMPLETED cycles accrue interest. Current (in-progress) cycle shows 0
- * unless overdue. Late bonus applies to cycles whose endDate > due_date.
+ *
+ * Each cycle's interest is calculated on the CURRENT outstanding principal at
+ * the start of that cycle. Payments are processed chronologically and applied
+ * in order: (1) accrued interest from completed cycles, (2) remaining principal.
+ * This guarantees that when a borrower pays down principal, future cycles
+ * accrue LESS interest — never a fixed amount based on the original loan.
+ *
+ * Compound mode capitalizes any unpaid interest into the principal base.
  */
 export function computeInterestCycles(loan: LoanLike, now: number = Date.now()): InterestCycle[] {
   const start = new Date(loan.loan_date).getTime();
@@ -36,14 +44,23 @@ export function computeInterestCycles(loan: LoanLike, now: number = Date.now()):
   const completedCycles = Math.floor(totalDays / 30);
   const cycles: InterestCycle[] = [];
 
-  let runningBase = loan.amount;
+  // Sort payments chronologically (older first).
+  const payments = [...loan.payments]
+    .map(p => ({ amount: p.amount, ts: new Date(p.date).getTime() }))
+    .sort((a, b) => a.ts - b.ts);
+
+  let principal = loan.amount;
+  let unpaidInterest = 0; // for compound mode capitalization
+  let pendingInterestForAlloc = 0; // accrued interest not yet covered by payments
+
   for (let i = 0; i < completedCycles; i++) {
     const cStart = start + i * 30 * DAY_MS;
     const cEnd = start + (i + 1) * 30 * DAY_MS;
     const isLate = due !== null && cEnd > due;
     const rate = monthlyRate + (isLate ? lateBonus : 0);
-    const interest = runningBase * rate;
-    if (isCompound) runningBase += interest;
+    const base = isCompound ? principal + unpaidInterest : principal;
+    const interest = base * rate;
+
     cycles.push({
       cycleNumber: i + 1,
       startDate: new Date(cStart).toISOString().split('T')[0],
@@ -51,7 +68,26 @@ export function computeInterestCycles(loan: LoanLike, now: number = Date.now()):
       interestAmount: interest,
       status: 'pendente',
       isLate,
+      principalBase: principal,
     });
+
+    pendingInterestForAlloc += interest;
+
+    // Apply any payments that occurred up through this cycle's end.
+    while (payments.length && payments[0].ts <= cEnd) {
+      let pay = payments.shift()!.amount;
+      // 1) cover accrued interest first
+      const interestCover = Math.min(pay, pendingInterestForAlloc);
+      pendingInterestForAlloc -= interestCover;
+      pay -= interestCover;
+      // 2) remainder reduces principal
+      if (pay > 0) {
+        principal = Math.max(0, principal - pay);
+      }
+    }
+
+    // For compound mode, any interest not yet paid capitalizes into base.
+    unpaidInterest = isCompound ? pendingInterestForAlloc : 0;
   }
 
   // Current in-progress cycle (informational, zero interest until it completes)
@@ -66,6 +102,7 @@ export function computeInterestCycles(loan: LoanLike, now: number = Date.now()):
       interestAmount: 0,
       status: 'em_curso',
       isLate,
+      principalBase: principal,
     });
   }
 
