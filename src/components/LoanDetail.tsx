@@ -301,30 +301,49 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
             {cycles.filter(c => c.status !== 'em_curso').map(c => (
               <div key={c.cycleNumber} className="py-2 px-3 rounded-md bg-accent/30 border border-border text-xs">
                 {editingCycle === c.cycleNumber ? (
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground flex-shrink-0">Ciclo {c.cycleNumber}</span>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={editCycleAmount}
-                      onChange={e => setEditCycleAmount(e.target.value)}
-                      className="h-8 text-xs flex-1"
-                    />
-                    <Button
-                      size="sm"
-                      className="h-8 text-xs"
-                      onClick={() => {
-                        const val = parseFloat(editCycleAmount);
-                        if (isNaN(val) || val < 0) return;
-                        setCycleOverrides(prev => ({ ...prev, [c.cycleNumber]: val }));
-                        setEditingCycle(null);
-                      }}
-                    >
-                      Salvar
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setEditingCycle(null)}>
-                      Cancelar
-                    </Button>
+                  <div className="space-y-2">
+                    <span className="font-medium text-foreground block">Ciclo {c.cycleNumber}</span>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[10px] text-muted-foreground w-16">Início</label>
+                      <Input
+                        type="date"
+                        value={editCycleDate}
+                        onChange={e => setEditCycleDate(e.target.value)}
+                        className="h-8 text-xs flex-1"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[10px] text-muted-foreground w-16">Juros R$</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editCycleAmount}
+                        onChange={e => setEditCycleAmount(e.target.value)}
+                        className="h-8 text-xs flex-1"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setEditingCycle(null)}>
+                        Cancelar
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => {
+                          const val = parseFloat(editCycleAmount);
+                          const next: CycleOverride = {};
+                          if (!isNaN(val) && val >= 0) next.amount = val;
+                          if (editCycleDate) next.startDate = editCycleDate;
+                          setCycleOverrides(prev => ({ ...prev, [c.cycleNumber]: next }));
+                          setEditingCycle(null);
+                        }}
+                      >
+                        Salvar
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Alterar a data do início recalcula os ciclos seguintes a cada 30 dias.
+                    </p>
                   </div>
                 ) : (
                   <div className="flex justify-between items-center">
@@ -355,6 +374,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                         onClick={() => {
                           setEditingCycle(c.cycleNumber);
                           setEditCycleAmount(String(c.interestAmount.toFixed(2)));
+                          setEditCycleDate(c.startDate);
                         }}
                       >
                         <Edit className="h-3.5 w-3.5" />
