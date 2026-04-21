@@ -204,10 +204,11 @@ describe('payments reduce future interest (saldo-based)', () => {
     expect(cycles[0].interestAmount).toBeCloseTo(400);
     expect(cycles[1].interestAmount).toBeCloseTo(200);
     expect(cycles[2].interestAmount).toBeCloseTo(200);
-    // Total interest 800; principal restante 2500; total devido = 3300; pago 2900 -> saldo 400.
+    // Total interest 800; total devido 5800; pago 2900 -> saldo 2900.
+    // (Principal restante 2500 + 200 juros ciclo2 + 200 juros ciclo3 = 2900)
     const b = computeBalanceBreakdown(loan, NOW);
     expect(b.totalInterest).toBeCloseTo(800);
-    expect(b.remaining).toBeCloseTo(400);
+    expect(b.remaining).toBeCloseTo(2900);
   });
 
   it('sem pagamentos parciais: juros continuam sobre principal cheio', () => {
