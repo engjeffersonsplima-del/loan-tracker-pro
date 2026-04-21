@@ -30,6 +30,20 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editDate, setEditDate] = useState('');
+  const overrideKey = `loan-cycle-overrides:${loan.id}`;
+  const [cycleOverrides, setCycleOverrides] = useState<Record<number, number>>(() => {
+    try {
+      const raw = localStorage.getItem(overrideKey);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [editingCycle, setEditingCycle] = useState<number | null>(null);
+  const [editCycleAmount, setEditCycleAmount] = useState('');
+  useEffect(() => {
+    try { localStorage.setItem(overrideKey, JSON.stringify(cycleOverrides)); } catch {}
+  }, [cycleOverrides, overrideKey]);
   const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0);
 
   const { remaining, totalWithInterest, completedCycles, accruedInterest, isOverdue, cycles, lateCyclesCount, interestPaid, principalPaid } = useMemo(() => {
@@ -43,25 +57,47 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
       interest_type: loan.interestType,
       payments: loan.payments.map(p => ({ amount: p.amount, date: p.date })),
     };
-    const cycles = computeInterestCyclesWithStatus(loanLike);
-    const breakdown = computeBalanceBreakdown(loanLike);
-    const completedCycles = cycles.filter(c => c.status !== 'em_curso').length;
-    const lateCyclesCount = cycles.filter(c => c.isLate && c.status !== 'em_curso').length;
+    const rawCycles = computeInterestCyclesWithStatus(loanLike);
+    // Apply manual overrides to cycle interest amounts
+    const cycles = rawCycles.map(c =>
+      cycleOverrides[c.cycleNumber] !== undefined && c.status !== 'em_curso'
+        ? { ...c, interestAmount: cycleOverrides[c.cycleNumber] }
+        : c
+    );
+    const totalInterest = cycles
+      .filter(c => c.status !== 'em_curso')
+      .reduce((s, c) => s + c.interestAmount, 0);
+    const totalOwed = loan.amount + totalInterest;
+    const interestPaid = Math.min(totalPaid, totalInterest);
+    const principalPaid = Math.max(0, totalPaid - totalInterest);
+    const remaining = Math.max(0, totalOwed - totalPaid);
+    // Re-mark cycle paid status with override-aware interest
+    let rem = totalPaid;
+    const cyclesStatused = cycles.map(c => {
+      if (c.status === 'em_curso') return c;
+      if (rem >= c.interestAmount) {
+        rem -= c.interestAmount;
+        return { ...c, status: 'pago' as const };
+      }
+      return { ...c, status: 'pendente' as const };
+    });
+    const completedCycles = cyclesStatused.filter(c => c.status !== 'em_curso').length;
+    const lateCyclesCount = cyclesStatused.filter(c => c.isLate && c.status !== 'em_curso').length;
     const now = new Date();
     const due = loan.dueDate ? new Date(loan.dueDate) : null;
     const isOverdue = !!due && now > due && loan.status !== 'pago';
     return {
-      remaining: breakdown.remaining,
-      totalWithInterest: breakdown.totalOwed,
+      remaining,
+      totalWithInterest: totalOwed,
       completedCycles,
-      accruedInterest: breakdown.totalInterest,
+      accruedInterest: totalInterest,
       isOverdue,
-      cycles,
+      cycles: cyclesStatused,
       lateCyclesCount,
-      interestPaid: breakdown.interestPaid,
-      principalPaid: breakdown.principalPaid,
+      interestPaid,
+      principalPaid,
     };
-  }, [loan]);
+  }, [loan, cycleOverrides, totalPaid]);
 
   const installmentValue = loan.installments > 0 ? loan.amount / loan.installments : 0;
   const installmentsPaid = installmentValue > 0 ? Math.min(loan.installments, Math.floor(totalPaid / installmentValue)) : 0;
