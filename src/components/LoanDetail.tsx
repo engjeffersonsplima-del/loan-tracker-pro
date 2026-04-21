@@ -4,10 +4,11 @@ import { StatusBadge } from './StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Trash2, CheckCircle, Percent, Edit, Infinity as InfinityIcon, History, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Trash2, CheckCircle, Percent, Edit, Infinity as InfinityIcon, History, RotateCcw, RefreshCw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { computeInterestCyclesWithStatus, computeBalanceBreakdown, type LoanLike } from '@/lib/loanCalculations';
+import { toast } from 'sonner';
 
 interface LoanDetailProps {
   loan: Loan;
@@ -19,6 +20,7 @@ interface LoanDetailProps {
   onUpdateStatus?: (loanId: string, status: string) => void;
   onUpdatePayment?: (paymentId: string, data: { amount?: number; date?: string }) => void;
   onDeletePayment?: (paymentId: string) => void;
+  onRecalculate?: () => void | Promise<void>;
 }
 
 function formatCurrency(value: number) {
