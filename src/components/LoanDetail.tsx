@@ -162,8 +162,14 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
             <span className="text-sm text-muted-foreground">Pago</span>
             <span className="text-sm font-medium text-primary">{formatCurrency(totalPaid)}</span>
           </div>
+          {accruedInterest > 0 && totalPaid > 0 && (
+            <div className="flex justify-between pl-3 text-xs text-muted-foreground">
+              <span>↳ abatido em juros / principal</span>
+              <span>{formatCurrency(interestPaid)} / {formatCurrency(principalPaid)}</span>
+            </div>
+          )}
           <div className="flex justify-between">
-            <span className="text-sm text-muted-foreground">Restante</span>
+            <span className="text-sm text-muted-foreground">Saldo devedor</span>
             <span className="text-sm font-medium">{formatCurrency(remaining)}</span>
           </div>
           <div className="flex justify-between">
