@@ -434,6 +434,9 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                           if (editCycleDate) next.startDate = editCycleDate;
                           setCycleOverrides(prev => ({ ...prev, [c.cycleNumber]: next }));
                           setEditingCycle(null);
+                          // Força recálculo em cascata de todos os ciclos seguintes
+                          setRecalcTick(t => t + 1);
+                          toast.success('Ciclo atualizado e recalculado');
                         }}
                       >
                         Salvar
