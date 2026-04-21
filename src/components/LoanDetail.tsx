@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Loan } from '@/types/loan';
 import { StatusBadge } from './StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Trash2, CheckCircle, Percent, Edit, Infinity as InfinityIcon, History } from 'lucide-react';
+import { ArrowLeft, Trash2, CheckCircle, Percent, Edit, Infinity as InfinityIcon, History, RotateCcw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { computeInterestCyclesWithStatus, computeBalanceBreakdown, type LoanLike } from '@/lib/loanCalculations';
