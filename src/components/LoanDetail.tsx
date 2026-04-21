@@ -82,7 +82,21 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
         <CardContent className="p-4 space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Status</span>
-            <StatusBadge status={loan.status} />
+            {onUpdateStatus ? (
+              <Select value={loan.status} onValueChange={(v) => onUpdateStatus(loan.id, v)}>
+                <SelectTrigger className="h-8 w-32 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="em_dia">Em dia</SelectItem>
+                  <SelectItem value="parcial">Parcial</SelectItem>
+                  <SelectItem value="atrasado">Atrasado</SelectItem>
+                  <SelectItem value="pago">Pago</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <StatusBadge status={loan.status} />
+            )}
           </div>
           <div className="flex justify-between">
             <span className="text-sm text-muted-foreground">Valor emprestado</span>
@@ -94,11 +108,11 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
             <div className="bg-accent/50 rounded-lg p-3 space-y-2">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                 <Percent className="h-3.5 w-3.5 text-primary" />
-                Juros
+                Juros ({loan.interestType === 'composto' ? 'composto' : 'simples'})
               </div>
               {loan.interestRate > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-xs text-muted-foreground">Taxa de juros</span>
+                  <span className="text-xs text-muted-foreground">Taxa mensal</span>
                   <span className="text-xs font-medium">{loan.interestRate}%</span>
                 </div>
               )}
@@ -108,14 +122,22 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                   <span className="text-xs font-medium text-destructive">+{loan.lateInterestRate}%</span>
                 </div>
               )}
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground">Meses decorridos</span>
+                <span className="text-xs font-medium">{monthsElapsed}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground">Juros acumulados</span>
+                <span className="text-xs font-medium text-warning">{formatCurrency(accruedInterest)}</span>
+              </div>
               {isOverdue && (
                 <div className="flex justify-between border-t border-border pt-1">
-                  <span className="text-xs text-destructive font-medium">⚠️ Taxa aplicada (atraso)</span>
-                  <span className="text-xs font-bold text-destructive">{appliedRate}%</span>
+                  <span className="text-xs text-destructive font-medium">⚠️ Em atraso — taxa majorada</span>
+                  <span className="text-xs font-bold text-destructive">+{loan.lateInterestRate}%</span>
                 </div>
               )}
               <div className="flex justify-between border-t border-border pt-1">
-                <span className="text-xs text-muted-foreground font-medium">Total com juros</span>
+                <span className="text-xs text-muted-foreground font-medium">Total devido hoje</span>
                 <span className="text-xs font-bold text-foreground">{formatCurrency(totalWithInterest)}</span>
               </div>
             </div>
@@ -131,12 +153,21 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
           </div>
           <div className="flex justify-between">
             <span className="text-sm text-muted-foreground">Vencimento</span>
-            <span className="text-sm">{new Date(loan.dueDate).toLocaleDateString('pt-BR')}</span>
+            <span className="text-sm flex items-center gap-1">
+              {loan.indefiniteTerm || !loan.dueDate ? (
+                <><InfinityIcon className="h-3.5 w-3.5 text-primary" /> Indefinido</>
+              ) : (
+                new Date(loan.dueDate).toLocaleDateString('pt-BR')
+              )}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-sm text-muted-foreground">Parcelas</span>
-            <span className="text-sm">{loan.installments}x</span>
+            <span className="text-sm">{installmentsPaid} / {loan.installments}x</span>
           </div>
+          {loan.installments > 1 && (
+            <Progress value={progressPct} className="h-2" />
+          )}
           <div className="flex justify-between">
             <span className="text-sm text-muted-foreground">Pagamento</span>
             <span className="text-sm capitalize">{loan.paymentMethod}</span>
