@@ -265,21 +265,86 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
           </h3>
           <div className="space-y-1">
             {cycles.filter(c => c.status !== 'em_curso').map(c => (
-              <div key={c.cycleNumber} className="py-2 px-3 rounded-md bg-accent/30 border border-border flex justify-between items-center text-xs">
-                <div className="flex flex-col">
-                  <span className="font-medium text-foreground">Ciclo {c.cycleNumber}</span>
-                  <span className="text-muted-foreground">
-                    {new Date(c.startDate).toLocaleDateString('pt-BR')} → {new Date(c.endDate).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className={`font-semibold ${c.isLate ? 'text-destructive' : 'text-warning'}`}>
-                    {formatCurrency(c.interestAmount)}
-                  </span>
-                  <span className={`text-[10px] uppercase tracking-wide ${c.status === 'pago' ? 'text-primary' : 'text-muted-foreground'}`}>
-                    {c.status === 'pago' ? '✓ Pago' : '• Pendente'}{c.isLate ? ' · atraso' : ''}
-                  </span>
-                </div>
+              <div key={c.cycleNumber} className="py-2 px-3 rounded-md bg-accent/30 border border-border text-xs">
+                {editingCycle === c.cycleNumber ? (
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-foreground flex-shrink-0">Ciclo {c.cycleNumber}</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editCycleAmount}
+                      onChange={e => setEditCycleAmount(e.target.value)}
+                      className="h-8 text-xs flex-1"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => {
+                        const val = parseFloat(editCycleAmount);
+                        if (isNaN(val) || val < 0) return;
+                        setCycleOverrides(prev => ({ ...prev, [c.cycleNumber]: val }));
+                        setEditingCycle(null);
+                      }}
+                    >
+                      Salvar
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setEditingCycle(null)}>
+                      Cancelar
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-foreground">
+                        Ciclo {c.cycleNumber}
+                        {cycleOverrides[c.cycleNumber] !== undefined && (
+                          <span className="ml-1 text-[10px] text-primary">(editado)</span>
+                        )}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {new Date(c.startDate).toLocaleDateString('pt-BR')} → {new Date(c.endDate).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-col items-end">
+                        <span className={`font-semibold ${c.isLate ? 'text-destructive' : 'text-warning'}`}>
+                          {formatCurrency(c.interestAmount)}
+                        </span>
+                        <span className={`text-[10px] uppercase tracking-wide ${c.status === 'pago' ? 'text-primary' : 'text-muted-foreground'}`}>
+                          {c.status === 'pago' ? '✓ Pago' : '• Pendente'}{c.isLate ? ' · atraso' : ''}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-primary"
+                        onClick={() => {
+                          setEditingCycle(c.cycleNumber);
+                          setEditCycleAmount(String(c.interestAmount.toFixed(2)));
+                        }}
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                      {cycleOverrides[c.cycleNumber] !== undefined && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground"
+                          title="Restaurar valor calculado"
+                          onClick={() => {
+                            setCycleOverrides(prev => {
+                              const next = { ...prev };
+                              delete next[c.cycleNumber];
+                              return next;
+                            });
+                          }}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
