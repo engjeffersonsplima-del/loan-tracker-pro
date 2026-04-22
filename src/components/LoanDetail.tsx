@@ -90,6 +90,15 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
     for (let i = 0; i < cycles.length; i++) {
       const ov = cycleOverrides[cycles[i].cycleNumber];
       if (ov?.startDate) {
+        // Ignora overrides de startDate que não estejam alinhados com o fim do
+        // ciclo anterior (ex: sobras de quando o ciclo era mensal e virou semanal).
+        if (i > 0) {
+          const prevEnd = new Date(cycles[i - 1].endDate).getTime();
+          const ovStart = new Date(ov.startDate).getTime();
+          if (Math.abs(ovStart - prevEnd) > DAY_MS / 2) {
+            continue;
+          }
+        }
         const newStart = new Date(ov.startDate).getTime();
         cycles[i].startDate = new Date(newStart).toISOString().split('T')[0];
         cycles[i].endDate = new Date(newStart + cycleDays * DAY_MS).toISOString().split('T')[0];
