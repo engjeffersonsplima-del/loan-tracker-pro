@@ -305,7 +305,9 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
               </div>
               {loan.interestRate > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-xs text-muted-foreground">Taxa mensal</span>
+                  <span className="text-xs text-muted-foreground">
+                    {loan.cyclePeriod === 'semanal' ? 'Taxa semanal' : 'Taxa mensal'}
+                  </span>
                   <span className="text-xs font-medium">{loan.interestRate}%</span>
                 </div>
               )}
