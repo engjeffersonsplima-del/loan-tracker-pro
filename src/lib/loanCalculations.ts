@@ -133,7 +133,6 @@ export function calcularEmprestimoCompleto(
   loan: LoanLike,
   now: number = Date.now()
 ): LoanComputationResult {
-  const periodoDias = getCycleDays(loan);
   const monthlyRate = (loan.interest_rate || 0) / 100;
   const lateBonus = (loan.late_interest_rate || 0) / 100;
   const due = loan.due_date ? parseLocalDate(loan.due_date).getTime() : null;
@@ -155,15 +154,16 @@ export function calcularEmprestimoCompleto(
   eventos.push({ type: 'pagamento' as const, ts: now, amount: 0 }); // marca "hoje"
   // O último evento serve só para acumular juros até hoje; o pagamento=0 é no-op.
 
-  let cursor = parseLocalDate(loan.loan_date).getTime();
+  const startTs = parseLocalDate(loan.loan_date).getTime();
+  let cursor = startTs;
+  let cyclesElapsed = 0;
 
   for (let i = 0; i < eventos.length; i++) {
     const ev = eventos[i];
-    const diffDias = Math.max(0, (ev.ts - cursor) / DAY_MS);
-    const periodos = Math.floor(diffDias / periodoDias);
-
-    for (let p = 0; p < periodos; p++) {
-      const periodEnd = cursor + periodoDias * DAY_MS;
+    // Fecha quantos ciclos couberem até este evento (semanal=7d, mensal=mês de calendário).
+    while (true) {
+      const periodEnd = addCycles(startTs, cyclesElapsed + 1, loan.cycle_period);
+      if (periodEnd > ev.ts) break;
       const isLate = due !== null && periodEnd > due;
       // Base = apenas o principal restante (juros não capitalizam).
       const base = principal;
@@ -180,6 +180,7 @@ export function calcularEmprestimoCompleto(
         isLate,
       });
       cursor = periodEnd;
+      cyclesElapsed += 1;
     }
 
     if (ev.type === 'pagamento' && ev.amount > 0) {
