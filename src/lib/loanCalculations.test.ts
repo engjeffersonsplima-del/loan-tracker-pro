@@ -194,9 +194,9 @@ describe('computeBalanceBreakdown', () => {
 
 describe('payments reduce future interest (saldo-based)', () => {
   it('R$5000 @ 8%/ciclo: pagamento entre ciclos reduz juros futuros', () => {
-    // Loan 90 days ago. 8% per 30-day cycle = R$400 on R$5000.
-    // After cycle 1 (60 days ago) borrower pays R$400 (juros) + R$2500 (principal).
-    // Cycle 2 base = 2500 -> juros = 200. Cycle 3 base = 2500 -> juros = 200.
+    // Loan 90 days ago, 8%/ciclo. C1 fecha 60d atrás (saldo 5400).
+    // Pagamento 2900 (mesmo momento): cobre 400 juros + 2500 principal -> saldo 2500.
+    // C2: 2500*0.08=200 -> saldo 2700. C3: 2700*0.08=216 -> saldo 2916.
     const loan = makeLoan({
       amount: 5000,
       loan_date: daysAgo(90),
@@ -208,12 +208,10 @@ describe('payments reduce future interest (saldo-based)', () => {
     expect(cycles).toHaveLength(3);
     expect(cycles[0].interestAmount).toBeCloseTo(400);
     expect(cycles[1].interestAmount).toBeCloseTo(200);
-    expect(cycles[2].interestAmount).toBeCloseTo(200);
-    // Total interest 800; total devido 5800; pago 2900 -> saldo 2900.
-    // (Principal restante 2500 + 200 juros ciclo2 + 200 juros ciclo3 = 2900)
+    expect(cycles[2].interestAmount).toBeCloseTo(216);
     const b = computeBalanceBreakdown(loan, NOW);
-    expect(b.totalInterest).toBeCloseTo(800);
-    expect(b.remaining).toBeCloseTo(2900);
+    expect(b.totalInterest).toBeCloseTo(816);
+    expect(b.remaining).toBeCloseTo(2916);
   });
 
   it('sem pagamentos parciais: juros continuam sobre principal cheio', () => {
