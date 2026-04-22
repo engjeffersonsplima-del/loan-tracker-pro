@@ -58,7 +58,7 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
         if (loan.status !== 'pago') {
           const cycles = computeInterestCyclesWithStatus(dbLike);
           overdueInterest = cycles
-            .filter(c => c.status === 'pendente' && c.isLate)
+            .filter(c => c.status === 'pendente')
             .reduce((s, c) => s + c.interestAmount, 0);
           const r = calcularEmprestimoCompleto(dbLike);
           principalRemaining = Math.max(0, r.principalRestante);
@@ -81,12 +81,7 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
                   {formatCurrency(loan.amount)}
                 </p>
                 {loan.status !== 'pago' && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Principal pendente: {formatCurrency(principalRemaining)}
-                  </p>
-                )}
-                {overdueInterest > 0 && (
-                  <p className="text-xs font-semibold text-destructive mt-0.5">
+                  <p className={`text-xs mt-0.5 ${overdueInterest > 0 ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
                     Juros em atraso: {formatCurrency(overdueInterest)}
                   </p>
                 )}
