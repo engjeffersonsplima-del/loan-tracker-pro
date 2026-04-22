@@ -51,6 +51,7 @@ export default function Index() {
     interestPaidThisMonth: (l as any).interest_paid_this_month || false,
     interestType: ((l as any).interest_type as 'simples' | 'composto') || 'simples',
     indefiniteTerm: (l as any).indefinite_term || false,
+    cyclePeriod: ((l as any).cycle_period as 'mensal' | 'semanal') || 'mensal',
     payments: l.payments.map(p => ({ id: p.id, amount: p.amount, date: p.date })),
   }));
 
