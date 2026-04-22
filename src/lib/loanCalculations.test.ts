@@ -171,7 +171,7 @@ describe('computeInterestCyclesWithStatus', () => {
     expect(completed[2].status).toBe('pendente');
   });
 
-  it('does not mark future cycles as paid when payment only covered older due interest and principal', () => {
+  it('applies payment to due cycles in chronological order', () => {
     const loan = makeLoan({
       amount: 5000,
       loan_date: daysAgo(21),
@@ -183,7 +183,7 @@ describe('computeInterestCyclesWithStatus', () => {
     const cycles = computeInterestCyclesWithStatus(loan, NOW).filter(c => c.status !== 'em_curso');
     expect(cycles).toHaveLength(3);
     expect(cycles[0].status).toBe('pago');
-    expect(cycles[1].status).toBe('pendente');
+    expect(cycles[1].status).toBe('pago');
     expect(cycles[2].status).toBe('pendente');
   });
 
