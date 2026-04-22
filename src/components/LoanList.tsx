@@ -54,16 +54,11 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
         // "Juros em atraso" = soma dos juros de ciclos JÁ ENCERRADOS que ainda
         // não foram pagos. Não inclui ciclo em curso nem juros já quitados.
         let overdueInterest = 0;
-        let principalRemaining = loan.amount;
         if (loan.status !== 'pago') {
           const cycles = computeInterestCyclesWithStatus(dbLike);
           overdueInterest = cycles
-            .filter(c => c.status === 'pendente')
+            .filter(c => c.status === 'pendente' && c.isLate)
             .reduce((s, c) => s + c.interestAmount, 0);
-          const r = calcularEmprestimoCompleto(dbLike);
-          principalRemaining = Math.max(0, r.principalRestante);
-        } else {
-          principalRemaining = 0;
         }
         return (
           <Card
