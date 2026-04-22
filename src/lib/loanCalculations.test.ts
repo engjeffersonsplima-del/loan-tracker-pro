@@ -37,15 +37,15 @@ describe('computeLoanOwed', () => {
     expect(computeLoanOwed(loan, NOW)).toBeCloseTo(1000);
   });
 
-  it('saldo-based interest: 10% over 2 full cycles (60 days) — juros não pagos capitalizam', () => {
+  it('principal-based interest: 10% over 2 full cycles (60 days) — juros NÃO capitalizam', () => {
     const loan = makeLoan({
       amount: 1000,
       loan_date: daysAgo(60),
       interest_rate: 10,
       interest_type: 'simples',
     });
-    // C1: 1000*0.1=100 (saldo 1100). C2: 1100*0.1=110 (saldo 1210).
-    expect(computeLoanOwed(loan, NOW)).toBeCloseTo(1210);
+    // C1: 1000*0.1=100. C2: 1000*0.1=100 (base = principal). Total devido = 1200.
+    expect(computeLoanOwed(loan, NOW)).toBeCloseTo(1200);
   });
 
   it('compound interest: 10% over 2 full cycles', () => {
@@ -55,7 +55,8 @@ describe('computeLoanOwed', () => {
       interest_rate: 10,
       interest_type: 'composto',
     });
-    expect(computeLoanOwed(loan, NOW)).toBeCloseTo(1210);
+    // Mesma regra: juros sempre sobre principal restante.
+    expect(computeLoanOwed(loan, NOW)).toBeCloseTo(1200);
   });
 
   it('does NOT apply interest before 30 days complete (in-progress cycle)', () => {
@@ -69,8 +70,6 @@ describe('computeLoanOwed', () => {
   });
 
   it('applies late bonus only to cycles ending after due date', () => {
-    // 60 days ago, due 30 days ago. Cycle 1 ends at day 30 (=30 days ago) — not > due, so normal.
-    // Cycle 2 ends today — > due, late bonus.
     const loan = makeLoan({
       amount: 1000,
       loan_date: daysAgo(60),
@@ -79,8 +78,8 @@ describe('computeLoanOwed', () => {
       late_interest_rate: 5,
       interest_type: 'simples',
     });
-    // C1 (normal): 1000*0.10=100 (saldo 1100). C2 (late): 1100*0.15=165 (saldo 1265).
-    expect(computeLoanOwed(loan, NOW)).toBeCloseTo(1265);
+    // C1 (normal): 1000*0.10=100. C2 (late): 1000*0.15=150. Total devido = 1250.
+    expect(computeLoanOwed(loan, NOW)).toBeCloseTo(1250);
   });
 
   it('does not apply late bonus when before due date', () => {
@@ -92,8 +91,8 @@ describe('computeLoanOwed', () => {
       late_interest_rate: 5,
       interest_type: 'simples',
     });
-    // Sem atraso: C1 100 (saldo 1100), C2 110 (saldo 1210).
-    expect(computeLoanOwed(loan, NOW)).toBeCloseTo(1210);
+    // Sem atraso: C1 100, C2 100 -> 1200.
+    expect(computeLoanOwed(loan, NOW)).toBeCloseTo(1200);
   });
 
   it('paid loans return total paid', () => {
@@ -115,8 +114,8 @@ describe('computeLoanOwed', () => {
       interest_rate: 10,
       interest_type: 'simples',
     });
-    // 3 ciclos de 10% sobre saldo: 500->550->605->665.5
-    expect(computeLoanOwed(loan, NOW)).toBeCloseTo(665.5);
+    // 3 ciclos de 10% sobre principal 500: 50*3 = 150 -> total 650.
+    expect(computeLoanOwed(loan, NOW)).toBeCloseTo(650);
   });
 });
 
