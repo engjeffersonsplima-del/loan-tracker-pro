@@ -1,0 +1,1 @@
+ALTER TABLE public.loans ADD COLUMN IF NOT EXISTS cycle_period text NOT NULL DEFAULT 'mensal';
