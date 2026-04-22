@@ -35,6 +35,23 @@ function formatDateBR(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('pt-BR');
 }
 
+/** Parse YYYY-MM-DD as a LOCAL date at 00:00 (avoids UTC shift). */
+function parseLocalDate(dateStr: string): Date {
+  if (!dateStr) return new Date(NaN);
+  const iso = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3]);
+  return new Date(dateStr);
+}
+
+/** Format a timestamp as YYYY-MM-DD using local time (no UTC shift). */
+function toLocalISO(ts: number): string {
+  const d = new Date(ts);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, onEdit, onUpdateStatus, onUpdatePayment, onDeletePayment, onRecalculate }: LoanDetailProps) {
   const [payAmount, setPayAmount] = useState('');
   const [recalcTick, setRecalcTick] = useState(0);
