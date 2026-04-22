@@ -195,10 +195,11 @@ describe('payments reduce future interest (principal-based)', () => {
   it('R$5000 @ 8%/ciclo: pagamento entre ciclos reduz juros futuros', () => {
     const loan = makeLoan({
       amount: 5000,
-      loan_date: daysAgo(90),
+      loan_date: daysAgo(21),
+      cycle_period: 'semanal',
       interest_rate: 8,
       interest_type: 'simples',
-      payments: [{ amount: 2900, date: daysAgo(60) }],
+      payments: [{ amount: 2900, date: daysAgo(14) }],
     });
     const cycles = computeInterestCycles(loan, NOW).filter(c => c.status !== 'em_curso');
     expect(cycles).toHaveLength(3);
@@ -216,7 +217,8 @@ describe('payments reduce future interest (principal-based)', () => {
   it('sem pagamentos parciais: juros continuam sobre principal cheio', () => {
     const loan = makeLoan({
       amount: 5000,
-      loan_date: daysAgo(90),
+      loan_date: daysAgo(21),
+      cycle_period: 'semanal',
       interest_rate: 8,
       interest_type: 'simples',
       payments: [],
