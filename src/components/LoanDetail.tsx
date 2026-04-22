@@ -402,6 +402,10 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                 <span className="text-xs text-muted-foreground">Juros acumulados</span>
                 <span className="text-xs font-medium text-warning">{formatCurrency(accruedInterest)}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground">Juros em atraso</span>
+                <span className={`text-xs font-medium ${overdueInterest > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>{formatCurrency(overdueInterest)}</span>
+              </div>
               {isOverdue && lateCyclesCount > 0 && (
                 <div className="flex justify-between border-t border-border pt-1">
                   <span className="text-xs text-destructive font-medium">⚠️ {lateCyclesCount} {lateCyclesCount === 1 ? 'ciclo' : 'ciclos'} em atraso</span>
