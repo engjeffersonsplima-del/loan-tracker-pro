@@ -120,7 +120,12 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
       const rate = monthlyRate + (c.isLate ? lateBonus : 0);
       const computedInterest = base * rate;
       const interest = ov?.amount !== undefined ? ov.amount : computedInterest;
-      pendingInterest += interest;
+      // Se o ciclo foi marcado manualmente como "pago" via override, ele NÃO
+      // contribui para juros pendentes (saldo devedor) — considera-se quitado.
+      const manuallyPaid = ov?.status === 'pago';
+      if (!manuallyPaid) {
+        pendingInterest += interest;
+      }
 
       // Apply payments up to this cycle end
       while (payIdx < sortedPayments.length && sortedPayments[payIdx].ts <= cycleEnd) {
