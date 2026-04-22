@@ -122,7 +122,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
 
   const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0);
 
-  const { remaining, totalWithInterest, completedCycles, accruedInterest, isOverdue, cycles, lateCyclesCount, interestPaid, principalPaid } = useMemo(() => {
+  const { remaining, totalWithInterest, completedCycles, accruedInterest, overdueInterest, isOverdue, cycles, lateCyclesCount, interestPaid, principalPaid } = useMemo(() => {
     const loanLike: LoanLike = {
       amount: loan.amount,
       loan_date: loan.loanDate,
