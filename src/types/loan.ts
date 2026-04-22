@@ -22,6 +22,7 @@ export interface Loan {
   interestPaidThisMonth: boolean;
   interestType: 'simples' | 'composto';
   indefiniteTerm: boolean;
+  cyclePeriod: 'mensal' | 'semanal';
   payments: Payment[];
 }
 

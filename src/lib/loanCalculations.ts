@@ -6,6 +6,8 @@ export interface LoanLike {
   interest_rate: number;
   late_interest_rate: number;
   interest_type?: string;
+  /** Período de cobrança de juros: 'mensal' (30 dias) ou 'semanal' (7 dias). Default: 'mensal'. */
+  cycle_period?: 'mensal' | 'semanal' | string;
   payments: { amount: number; date: string }[];
 }
 
@@ -21,6 +23,11 @@ export interface InterestCycle {
 }
 
 const DAY_MS = 1000 * 60 * 60 * 24;
+
+/** Retorna o tamanho do ciclo em dias com base em loan.cycle_period. */
+export function getCycleDays(loan: Pick<LoanLike, 'cycle_period'>): number {
+  return loan.cycle_period === 'semanal' ? 7 : 30;
+}
 
 export interface LoanComputationEvent {
   type: 'juros' | 'pagamento';
