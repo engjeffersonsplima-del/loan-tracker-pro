@@ -82,6 +82,36 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
   useEffect(() => {
     try { localStorage.setItem(overrideKey, JSON.stringify(cycleOverrides)); } catch {}
   }, [cycleOverrides, overrideKey]);
+
+  // Quando muda o período do ciclo (mensal↔semanal), descarta overrides de
+  // startDate cujo alinhamento (delta em dias desde loan_date) não é múltiplo
+  // do tamanho do ciclo atual — assim garantimos 7 ou 30 dias exatos.
+  useEffect(() => {
+    const DAY_MS = 1000 * 60 * 60 * 24;
+    const cycleDays = loan.cyclePeriod === 'semanal' ? 7 : 30;
+    const start = parseLocalDate(loan.loanDate).getTime();
+    setCycleOverrides(prev => {
+      let changed = false;
+      const next: Record<number, CycleOverride> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const ov = v as CycleOverride;
+        if (ov?.startDate) {
+          const ovTs = parseLocalDate(ov.startDate).getTime();
+          const deltaDays = Math.round((ovTs - start) / DAY_MS);
+          if (deltaDays < 0 || deltaDays % cycleDays !== 0) {
+            // remove startDate inválido, mas preserva amount/status
+            const { startDate, ...rest } = ov;
+            if (Object.keys(rest).length > 0) next[Number(k)] = rest;
+            changed = true;
+            return;
+          }
+        }
+        next[Number(k)] = ov;
+      });
+      return changed ? next : prev;
+    });
+  }, [loan.cyclePeriod, loan.loanDate]);
+
   const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0);
 
   const { remaining, totalWithInterest, completedCycles, accruedInterest, isOverdue, cycles, lateCyclesCount, interestPaid, principalPaid } = useMemo(() => {
