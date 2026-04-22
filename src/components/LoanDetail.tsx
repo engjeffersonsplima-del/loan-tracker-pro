@@ -113,7 +113,10 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
       }
       const ov = cycleOverrides[c.cycleNumber];
       const cycleEnd = new Date(c.endDate).getTime();
-      const base = principal + pendingInterest; // saldo devedor total na data do ciclo
+      // Juros SIMPLES: base = apenas principal restante. Juros NÃO capitalizam.
+      // Se parte do principal já foi paga em ciclos anteriores, a base diminui
+      // automaticamente nos ciclos seguintes.
+      const base = principal;
       const rate = monthlyRate + (c.isLate ? lateBonus : 0);
       const computedInterest = base * rate;
       const interest = ov?.amount !== undefined ? ov.amount : computedInterest;
