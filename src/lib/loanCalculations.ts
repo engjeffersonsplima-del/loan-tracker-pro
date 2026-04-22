@@ -349,35 +349,28 @@ export function computeInterestCyclesWithStatus(loan: LoanLike, now: number = Da
 
   const remainingByCycle = completedCycles.map(c => c.interestAmount);
   let paymentIdx = 0;
-  let oldestOpenCycleIdx = 0;
 
-  const applyPaymentToDueInterest = (amount: number) => {
+  const applyPaymentToDueInterest = (amount: number, lastDueCycleIdx: number) => {
     let remainingPayment = amount;
-    while (remainingPayment > 0.001 && oldestOpenCycleIdx < remainingByCycle.length) {
-      const due = remainingByCycle[oldestOpenCycleIdx];
-      if (due <= 0.001) {
-        oldestOpenCycleIdx += 1;
-        continue;
-      }
+    for (let cycleIdx = 0; cycleIdx <= lastDueCycleIdx && remainingPayment > 0.001; cycleIdx += 1) {
+      const due = remainingByCycle[cycleIdx];
+      if (due <= 0.001) continue;
       const covered = Math.min(remainingPayment, due);
-      remainingByCycle[oldestOpenCycleIdx] -= covered;
+      remainingByCycle[cycleIdx] -= covered;
       remainingPayment -= covered;
-      if (remainingByCycle[oldestOpenCycleIdx] <= 0.001) {
-        oldestOpenCycleIdx += 1;
-      }
     }
   };
 
   completedCycles.forEach((cycle, idx) => {
     const cycleEnd = parseLocalDate(cycle.endDate).getTime();
     while (paymentIdx < sortedPayments.length && sortedPayments[paymentIdx].ts <= cycleEnd) {
-      applyPaymentToDueInterest(sortedPayments[paymentIdx].amount);
+      applyPaymentToDueInterest(sortedPayments[paymentIdx].amount, idx);
       paymentIdx += 1;
     }
   });
 
   while (paymentIdx < sortedPayments.length) {
-    applyPaymentToDueInterest(sortedPayments[paymentIdx].amount);
+    applyPaymentToDueInterest(sortedPayments[paymentIdx].amount, completedCycles.length - 1);
     paymentIdx += 1;
   }
 
