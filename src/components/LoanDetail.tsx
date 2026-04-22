@@ -27,6 +27,14 @@ function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+/** Format a YYYY-MM-DD date string as DD/MM/YYYY without timezone shifts. */
+function formatDateBR(dateStr: string): string {
+  if (!dateStr) return '';
+  const iso = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  return new Date(dateStr).toLocaleDateString('pt-BR');
+}
+
 export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, onEdit, onUpdateStatus, onUpdatePayment, onDeletePayment, onRecalculate }: LoanDetailProps) {
   const [payAmount, setPayAmount] = useState('');
   const [recalcTick, setRecalcTick] = useState(0);
@@ -466,7 +474,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                         )}
                       </span>
                       <span className="text-muted-foreground">
-                        {new Date(c.startDate).toLocaleDateString('pt-BR')} → {new Date(c.endDate).toLocaleDateString('pt-BR')}
+                        {formatDateBR(c.startDate)} → {formatDateBR(c.endDate)}
                       </span>
                       {c.principalBase !== undefined && (
                         <span className="text-[10px] text-muted-foreground">
