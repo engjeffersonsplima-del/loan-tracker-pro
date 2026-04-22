@@ -187,7 +187,7 @@ describe('computeBalanceBreakdown', () => {
     // Pagamento de 300: cobre 210 juros + 90 principal.
     expect(b.totalInterest).toBeCloseTo(210);
     expect(b.interestPaid).toBeCloseTo(210);
-    expect(b.principalPaid).toBeCloseTo(100);
+    expect(b.principalPaid).toBeCloseTo(90);
     expect(b.remaining).toBeCloseTo(910);
   });
 });
