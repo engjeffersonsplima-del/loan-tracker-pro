@@ -53,13 +53,10 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
         };
         // "Juros em atraso" = soma dos juros de ciclos JÁ ENCERRADOS que ainda
         // não foram pagos. Não inclui ciclo em curso nem juros já quitados.
-        let overdueInterest = 0;
-        if (loan.status !== 'pago') {
-          const cycles = computeInterestCyclesWithStatus(dbLike);
-          overdueInterest = cycles
-            .filter(c => c.status === 'pendente' && c.isLate)
-            .reduce((s, c) => s + c.interestAmount, 0);
-        }
+        const cycles = computeInterestCyclesWithStatus(dbLike);
+        const overdueInterest = cycles
+          .filter(c => c.status === 'pendente' && c.isLate)
+          .reduce((s, c) => s + c.interestAmount, 0);
         return (
           <Card
             key={loan.id}
@@ -75,11 +72,9 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
                 <p className="text-xs text-muted-foreground">
                   {formatCurrency(loan.amount)}
                 </p>
-                {loan.status !== 'pago' && (
-                  <p className={`text-xs mt-0.5 ${overdueInterest > 0 ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
-                    Juros em atraso: {formatCurrency(overdueInterest)}
-                  </p>
-                )}
+                <p className={`text-xs mt-0.5 ${overdueInterest > 0 ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
+                  Juros em atraso: {formatCurrency(overdueInterest)}
+                </p>
               </div>
               {onEdit && (
                 <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 text-primary" onClick={(e) => { e.stopPropagation(); onEdit(loan); }}>
