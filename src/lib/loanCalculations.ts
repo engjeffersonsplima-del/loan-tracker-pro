@@ -56,15 +56,16 @@ export interface LoanComputationResult {
 /**
  * Motor de cálculo orientado a eventos (cronológico).
  *
- * - Ordena pagamentos por data e adiciona um evento "hoje" ao final.
- * - Entre cada evento, aplica juros por períodos completos de 30 dias sobre o
- *   SALDO DEVEDOR vivo (principal restante + juros pendentes acumulados).
- * - Cada pagamento abate primeiro juros pendentes e depois principal.
- * - Após qualquer pagamento, os juros futuros são naturalmente menores porque
- *   incidem sobre o novo saldo (princípio de "amortização sobre saldo").
- *
- * O modo "composto" é equivalente: como o saldo base já inclui juros pendentes
- * (que só são removidos por pagamentos), não pagar juros já capitaliza.
+ * Regra (definida pelo usuário):
+ * - Os juros do mês incidem SEMPRE sobre o PRINCIPAL RESTANTE (valor emprestado
+ *   ainda não amortizado), nunca sobre juros acumulados. Juros não pagos NÃO
+ *   capitalizam — ficam apenas como dívida pendente.
+ * - "Juros acumulado" é só uma referência informativa do total devido em juros.
+ * - "Valor devido hoje" / "saldo devedor" = principal restante + juros pendentes.
+ * - Pagamentos abatem primeiro os juros pendentes e depois o principal,
+ *   reduzindo simultaneamente o saldo devedor e o valor devido hoje.
+ * - Pagar parte do principal reduz os juros dos próximos ciclos (porque a base
+ *   diminuiu), mas dentro de um ciclo a base é o principal vivo no início dele.
  */
 export function calcularEmprestimoCompleto(
   loan: LoanLike,
@@ -102,7 +103,8 @@ export function calcularEmprestimoCompleto(
     for (let p = 0; p < periodos; p++) {
       const periodEnd = cursor + periodoDias * DAY_MS;
       const isLate = due !== null && periodEnd > due;
-      const base = principal + jurosAcumulado;
+      // Base = apenas o principal restante (juros não capitalizam).
+      const base = principal;
       const rate = monthlyRate + (isLate ? lateBonus : 0);
       const juros = base * rate;
       jurosAcumulado += juros;
