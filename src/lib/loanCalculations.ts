@@ -342,15 +342,51 @@ export function computeBalanceBreakdown(loan: LoanLike, now: number = Date.now()
  */
 export function computeInterestCyclesWithStatus(loan: LoanLike, now: number = Date.now()): InterestCycle[] {
   const cycles = computeInterestCycles(loan, now);
-  const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0);
-  let remainingPayment = totalPaid;
+  const completedCycles = cycles.filter(c => c.status !== 'em_curso');
+  const sortedPayments = [...loan.payments]
+    .map(p => ({ ts: parseLocalDate(p.date).getTime(), amount: p.amount }))
+    .sort((a, b) => a.ts - b.ts);
+
+  const remainingByCycle = completedCycles.map(c => c.interestAmount);
+  let paymentIdx = 0;
+  let oldestOpenCycleIdx = 0;
+
+  const applyPaymentToDueInterest = (amount: number) => {
+    let remainingPayment = amount;
+    while (remainingPayment > 0.001 && oldestOpenCycleIdx < remainingByCycle.length) {
+      const due = remainingByCycle[oldestOpenCycleIdx];
+      if (due <= 0.001) {
+        oldestOpenCycleIdx += 1;
+        continue;
+      }
+      const covered = Math.min(remainingPayment, due);
+      remainingByCycle[oldestOpenCycleIdx] -= covered;
+      remainingPayment -= covered;
+      if (remainingByCycle[oldestOpenCycleIdx] <= 0.001) {
+        oldestOpenCycleIdx += 1;
+      }
+    }
+  };
+
+  completedCycles.forEach((cycle, idx) => {
+    const cycleEnd = parseLocalDate(cycle.endDate).getTime();
+    while (paymentIdx < sortedPayments.length && sortedPayments[paymentIdx].ts <= cycleEnd) {
+      applyPaymentToDueInterest(sortedPayments[paymentIdx].amount);
+      paymentIdx += 1;
+    }
+  });
+
+  while (paymentIdx < sortedPayments.length) {
+    applyPaymentToDueInterest(sortedPayments[paymentIdx].amount);
+    paymentIdx += 1;
+  }
+
+  let completedIdx = 0;
   return cycles.map(c => {
     if (c.status === 'em_curso') return c;
-    if (remainingPayment >= c.interestAmount) {
-      remainingPayment -= c.interestAmount;
-      return { ...c, status: 'pago' as const };
-    }
-    return c;
+    const remaining = remainingByCycle[completedIdx];
+    completedIdx += 1;
+    return { ...c, status: remaining <= 0.001 ? 'pago' : 'pendente' };
   });
 }
 
