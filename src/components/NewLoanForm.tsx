@@ -198,7 +198,7 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="interestRate" className="text-xs font-medium flex items-center gap-1">
-              <Percent className="h-3 w-3" /> Juros mensal (%)
+              <Percent className="h-3 w-3" /> {cyclePeriod === 'semanal' ? 'Juros semanal (%)' : 'Juros mensal (%)'}
             </Label>
             <Input id="interestRate" type="number" step="0.1" min="0" value={interestRate} onChange={e => setInterestRate(e.target.value)} placeholder="0" className="h-11 rounded-xl" />
           </div>
