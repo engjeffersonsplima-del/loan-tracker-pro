@@ -48,9 +48,15 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
           interest_rate: loan.interestRate,
           late_interest_rate: loan.lateInterestRate,
           interest_type: loan.interestType,
+          cycle_period: loan.cyclePeriod,
           payments: loan.payments.map(p => ({ amount: p.amount, date: p.date })),
         };
-        const totalDue = loan.status !== 'pago' ? computeBalanceBreakdown(dbLike).remaining : 0;
+        // "Saldo devedor" = apenas juros pendentes (não pagos), sem somar o principal emprestado.
+        let pendingInterest = 0;
+        if (loan.status !== 'pago') {
+          const b = computeBalanceBreakdown(dbLike);
+          pendingInterest = Math.max(0, b.totalInterest - b.interestPaid);
+        }
         return (
           <Card
             key={loan.id}
@@ -66,9 +72,9 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
                 <p className="text-xs text-muted-foreground">
                   {formatCurrency(loan.amount)}
                 </p>
-                {totalDue > 0 && (
+                {pendingInterest > 0 && (
                   <p className="text-xs font-semibold text-destructive mt-0.5">
-                    Saldo devedor: {formatCurrency(totalDue)}
+                    Juros em atraso: {formatCurrency(pendingInterest)}
                   </p>
                 )}
               </div>
