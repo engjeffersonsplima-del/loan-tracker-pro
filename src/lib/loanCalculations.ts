@@ -190,7 +190,8 @@ export function computeInterestCycles(loan: LoanLike, now: number = Date.now()):
     const cStart = start + i * 30 * DAY_MS;
     const cEnd = start + (i + 1) * 30 * DAY_MS;
     const isLate = due !== null && cEnd > due;
-    const base = principal + pendingInterest;
+    // Base = apenas o principal restante (juros NÃO capitalizam).
+    const base = principal;
     const rate = monthlyRate + (isLate ? lateBonus : 0);
     const juros = base * rate;
     pendingInterest += juros;
