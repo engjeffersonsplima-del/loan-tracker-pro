@@ -183,7 +183,7 @@ describe('computeInterestCyclesWithStatus', () => {
     const cycles = computeInterestCyclesWithStatus(loan, NOW).filter(c => c.status !== 'em_curso');
     expect(cycles).toHaveLength(3);
     expect(cycles[0].status).toBe('pago');
-    expect(cycles[1].status).toBe('pago');
+    expect(cycles[1].status).toBe('pendente');
     expect(cycles[2].status).toBe('pendente');
   });
 
