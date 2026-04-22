@@ -192,8 +192,8 @@ export function calcularEmprestimoCompleto(
  * Compound mode capitalizes any unpaid interest into the principal base.
  */
 export function computeInterestCycles(loan: LoanLike, now: number = Date.now()): InterestCycle[] {
-  const start = new Date(loan.loan_date).getTime();
-  const due = loan.due_date ? new Date(loan.due_date).getTime() : null;
+  const start = parseLocalDate(loan.loan_date).getTime();
+  const due = loan.due_date ? parseLocalDate(loan.due_date).getTime() : null;
   const cycleDays = getCycleDays(loan);
   const totalDays = Math.max(0, Math.floor((now - start) / DAY_MS));
   const completedCycles = Math.floor(totalDays / cycleDays);
@@ -205,7 +205,7 @@ export function computeInterestCycles(loan: LoanLike, now: number = Date.now()):
   const monthlyRate = (loan.interest_rate || 0) / 100;
   const lateBonus = (loan.late_interest_rate || 0) / 100;
   const sortedPayments = [...loan.payments]
-    .map(p => ({ ts: new Date(p.date).getTime(), amount: p.amount }))
+    .map(p => ({ ts: parseLocalDate(p.date).getTime(), amount: p.amount }))
     .sort((a, b) => a.ts - b.ts);
 
   let principal = loan.amount;
@@ -238,8 +238,8 @@ export function computeInterestCycles(loan: LoanLike, now: number = Date.now()):
 
   const cycles: InterestCycle[] = periodEvents.map((e, i) => ({
     cycleNumber: i + 1,
-    startDate: new Date(start + i * cycleDays * DAY_MS).toISOString().split('T')[0],
-    endDate: new Date(e.ts).toISOString().split('T')[0],
+    startDate: toLocalISO(start + i * cycleDays * DAY_MS),
+    endDate: toLocalISO(e.ts),
     interestAmount: e.juros,
     status: 'pendente',
     isLate: e.isLate,
@@ -252,8 +252,8 @@ export function computeInterestCycles(loan: LoanLike, now: number = Date.now()):
     const isLate = due !== null && now > due;
     cycles.push({
       cycleNumber: completedCycles + 1,
-      startDate: new Date(cStart).toISOString().split('T')[0],
-      endDate: new Date(cEnd).toISOString().split('T')[0],
+      startDate: toLocalISO(cStart),
+      endDate: toLocalISO(cEnd),
       interestAmount: 0,
       status: 'em_curso',
       isLate,
