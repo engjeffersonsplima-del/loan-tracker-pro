@@ -56,6 +56,7 @@ export type Database = {
           borrower_name: string
           created_at: string
           customer_id: string | null
+          cycle_period: string
           due_date: string | null
           id: string
           indefinite_term: boolean
@@ -77,6 +78,7 @@ export type Database = {
           borrower_name: string
           created_at?: string
           customer_id?: string | null
+          cycle_period?: string
           due_date?: string | null
           id?: string
           indefinite_term?: boolean
@@ -98,6 +100,7 @@ export type Database = {
           borrower_name?: string
           created_at?: string
           customer_id?: string | null
+          cycle_period?: string
           due_date?: string | null
           id?: string
           indefinite_term?: boolean

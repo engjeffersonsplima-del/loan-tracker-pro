@@ -21,6 +21,7 @@ export interface DBLoan {
   interest_type?: string;
   indefinite_term?: boolean;
   loan_type?: string;
+  cycle_period?: 'mensal' | 'semanal' | string;
   interest_paid_this_month?: boolean;
   payments: DBPayment[];
 }
@@ -131,6 +132,7 @@ export function useLoansDB(onCustomerCreated?: () => void) {
     interestType?: 'simples' | 'composto';
     indefiniteTerm?: boolean;
     loanType?: 'juros_mensal' | 'parcelas_fixas';
+    cyclePeriod?: 'mensal' | 'semanal';
   }) => {
     if (!user) return;
     // Auto-create customer if name doesn't match an existing one
@@ -173,6 +175,7 @@ export function useLoansDB(onCustomerCreated?: () => void) {
       interest_type: data.interestType || 'simples',
       indefinite_term: data.indefiniteTerm || false,
       loan_type: data.loanType || 'parcelas_fixas',
+      cycle_period: data.cyclePeriod || 'mensal',
     });
     if (error) {
       toast.error('Erro ao salvar empréstimo');
@@ -259,6 +262,7 @@ export function useLoansDB(onCustomerCreated?: () => void) {
     interestType?: 'simples' | 'composto';
     indefiniteTerm?: boolean;
     loanType?: 'juros_mensal' | 'parcelas_fixas';
+    cyclePeriod?: 'mensal' | 'semanal';
   }) => {
     if (!user) return;
     const { error } = await supabase.from('loans').update({
@@ -274,6 +278,7 @@ export function useLoansDB(onCustomerCreated?: () => void) {
       interest_type: data.interestType || 'simples',
       indefinite_term: data.indefiniteTerm || false,
       loan_type: data.loanType || 'parcelas_fixas',
+      cycle_period: data.cyclePeriod || 'mensal',
     }).eq('id', id);
     if (error) {
       toast.error('Erro ao atualizar empréstimo');

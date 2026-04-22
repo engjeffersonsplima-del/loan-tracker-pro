@@ -25,6 +25,7 @@ interface NewLoanFormProps {
     interestType?: 'simples' | 'composto';
     indefiniteTerm?: boolean;
     loanType?: 'juros_mensal' | 'parcelas_fixas';
+    cyclePeriod?: 'mensal' | 'semanal';
   }) => void;
   onBack: () => void;
   editLoan?: Loan;
@@ -48,6 +49,7 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
   const [interestPaidThisMonth, setInterestPaidThisMonth] = useState(editLoan?.interestPaidThisMonth || false);
   const [interestType, setInterestType] = useState<'simples' | 'composto'>(editLoan?.interestType || 'simples');
   const [indefiniteTerm, setIndefiniteTerm] = useState<boolean>(editLoan?.indefiniteTerm || false);
+  const [cyclePeriod, setCyclePeriod] = useState<'mensal' | 'semanal'>(editLoan?.cyclePeriod || 'mensal');
 
   const preview = useMemo(() => {
     const total = parseFloat(amount) || 0;
@@ -75,6 +77,7 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
       interestType,
       indefiniteTerm,
       loanType,
+      cyclePeriod,
     });
   };
 
@@ -157,6 +160,21 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
             <div className="flex items-center gap-2">
               <RadioGroupItem value="juros_mensal" id="juros_mensal" />
               <Label htmlFor="juros_mensal" className="text-xs cursor-pointer">Juros por Mês</Label>
+            </div>
+          </RadioGroup>
+        </div>
+
+        {/* Período do ciclo de juros */}
+        <div className="space-y-2">
+          <Label className="text-xs font-medium">Período do Ciclo de Juros</Label>
+          <RadioGroup value={cyclePeriod} onValueChange={(v) => setCyclePeriod(v as 'mensal' | 'semanal')} className="flex gap-4">
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="mensal" id="ciclo_mensal" />
+              <Label htmlFor="ciclo_mensal" className="text-xs cursor-pointer">Mensal (a cada 30 dias)</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="semanal" id="ciclo_semanal" />
+              <Label htmlFor="ciclo_semanal" className="text-xs cursor-pointer">Semanal (a cada 7 dias)</Label>
             </div>
           </RadioGroup>
         </div>
