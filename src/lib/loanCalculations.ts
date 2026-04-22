@@ -22,6 +22,137 @@ export interface InterestCycle {
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
+export interface LoanComputationEvent {
+  type: 'juros' | 'pagamento';
+  date: string;
+  /** For 'juros': interest accrued in this period. For 'pagamento': total paid. */
+  amount: number;
+  /** Saldo devedor (principal + juros pendentes) usado como base do cálculo. */
+  saldoBase?: number;
+  /** Pagamento: parcela aplicada a juros. */
+  pagoJuros?: number;
+  /** Pagamento: parcela aplicada a principal. */
+  pagoPrincipal?: number;
+  /** Saldo devedor após o evento. */
+  saldoApos: number;
+  isLate?: boolean;
+}
+
+export interface LoanComputationResult {
+  valorInicial: number;
+  totalPago: number;
+  /** Principal restante (não inclui juros pendentes). */
+  principalRestante: number;
+  /** Juros acumulados ainda não pagos. */
+  jurosAcumulado: number;
+  /** Saldo devedor total = principalRestante + jurosAcumulado. */
+  saldoDevedor: number;
+  totalJurosCobrados: number;
+  totalJurosPagos: number;
+  totalPrincipalPago: number;
+  historico: LoanComputationEvent[];
+}
+
+/**
+ * Motor de cálculo orientado a eventos (cronológico).
+ *
+ * - Ordena pagamentos por data e adiciona um evento "hoje" ao final.
+ * - Entre cada evento, aplica juros por períodos completos de 30 dias sobre o
+ *   SALDO DEVEDOR vivo (principal restante + juros pendentes acumulados).
+ * - Cada pagamento abate primeiro juros pendentes e depois principal.
+ * - Após qualquer pagamento, os juros futuros são naturalmente menores porque
+ *   incidem sobre o novo saldo (princípio de "amortização sobre saldo").
+ *
+ * O modo "composto" é equivalente: como o saldo base já inclui juros pendentes
+ * (que só são removidos por pagamentos), não pagar juros já capitaliza.
+ */
+export function calcularEmprestimoCompleto(
+  loan: LoanLike,
+  now: number = Date.now()
+): LoanComputationResult {
+  const periodoDias = 30;
+  const monthlyRate = (loan.interest_rate || 0) / 100;
+  const lateBonus = (loan.late_interest_rate || 0) / 100;
+  const due = loan.due_date ? new Date(loan.due_date).getTime() : null;
+
+  let principal = loan.amount;
+  let jurosAcumulado = 0;
+  let totalJurosCobrados = 0;
+  let totalJurosPagos = 0;
+  let totalPrincipalPago = 0;
+  const historico: LoanComputationEvent[] = [];
+
+  const eventos = [
+    ...loan.payments.map(p => ({
+      type: 'pagamento' as const,
+      ts: new Date(p.date).getTime(),
+      amount: p.amount,
+    })),
+  ].sort((a, b) => a.ts - b.ts);
+  eventos.push({ type: 'pagamento' as const, ts: now, amount: 0 }); // marca "hoje"
+  // O último evento serve só para acumular juros até hoje; o pagamento=0 é no-op.
+
+  let cursor = new Date(loan.loan_date).getTime();
+
+  for (let i = 0; i < eventos.length; i++) {
+    const ev = eventos[i];
+    const diffDias = Math.max(0, (ev.ts - cursor) / DAY_MS);
+    const periodos = Math.floor(diffDias / periodoDias);
+
+    for (let p = 0; p < periodos; p++) {
+      const periodEnd = cursor + periodoDias * DAY_MS;
+      const isLate = due !== null && periodEnd > due;
+      const base = principal + jurosAcumulado;
+      const rate = monthlyRate + (isLate ? lateBonus : 0);
+      const juros = base * rate;
+      jurosAcumulado += juros;
+      totalJurosCobrados += juros;
+      historico.push({
+        type: 'juros',
+        date: new Date(periodEnd).toISOString(),
+        amount: juros,
+        saldoBase: base,
+        saldoApos: principal + jurosAcumulado,
+        isLate,
+      });
+      cursor = periodEnd;
+    }
+
+    if (ev.type === 'pagamento' && ev.amount > 0) {
+      let restante = ev.amount;
+      const pagoJuros = Math.min(restante, jurosAcumulado);
+      jurosAcumulado -= pagoJuros;
+      totalJurosPagos += pagoJuros;
+      restante -= pagoJuros;
+      const pagoPrincipal = Math.min(restante, principal);
+      principal -= pagoPrincipal;
+      totalPrincipalPago += pagoPrincipal;
+      historico.push({
+        type: 'pagamento',
+        date: new Date(ev.ts).toISOString(),
+        amount: ev.amount,
+        pagoJuros,
+        pagoPrincipal,
+        saldoApos: principal + jurosAcumulado,
+      });
+      cursor = ev.ts;
+    }
+  }
+
+  const totalPago = loan.payments.reduce((s, p) => s + p.amount, 0);
+  return {
+    valorInicial: loan.amount,
+    totalPago,
+    principalRestante: principal,
+    jurosAcumulado,
+    saldoDevedor: principal + jurosAcumulado,
+    totalJurosCobrados,
+    totalJurosPagos,
+    totalPrincipalPago,
+    historico,
+  };
+}
+
 /**
  * Compute interest cycles (30-day periods) since loan start.
  *
@@ -36,61 +167,56 @@ const DAY_MS = 1000 * 60 * 60 * 24;
 export function computeInterestCycles(loan: LoanLike, now: number = Date.now()): InterestCycle[] {
   const start = new Date(loan.loan_date).getTime();
   const due = loan.due_date ? new Date(loan.due_date).getTime() : null;
-  const monthlyRate = (loan.interest_rate || 0) / 100;
-  const lateBonus = (loan.late_interest_rate || 0) / 100;
-  const isCompound = loan.interest_type === 'composto';
-
   const totalDays = Math.max(0, Math.floor((now - start) / DAY_MS));
   const completedCycles = Math.floor(totalDays / 30);
-  const cycles: InterestCycle[] = [];
 
-  // Sort payments chronologically (older first).
-  const payments = [...loan.payments]
-    .map(p => ({ amount: p.amount, ts: new Date(p.date).getTime() }))
+  // Reproduz os ciclos completos calculados pelo motor orientado a eventos,
+  // garantindo base de cálculo sobre saldo vivo (principal + juros pendentes).
+  const periodEvents: { ts: number; juros: number; saldoBase: number; isLate: boolean }[] = [];
+  // Mini-replay focado apenas em períodos completos:
+  const monthlyRate = (loan.interest_rate || 0) / 100;
+  const lateBonus = (loan.late_interest_rate || 0) / 100;
+  const sortedPayments = [...loan.payments]
+    .map(p => ({ ts: new Date(p.date).getTime(), amount: p.amount }))
     .sort((a, b) => a.ts - b.ts);
 
   let principal = loan.amount;
-  let unpaidInterest = 0; // for compound mode capitalization
-  let pendingInterestForAlloc = 0; // accrued interest not yet covered by payments
+  let pendingInterest = 0;
+  let payIdx = 0;
 
   for (let i = 0; i < completedCycles; i++) {
     const cStart = start + i * 30 * DAY_MS;
     const cEnd = start + (i + 1) * 30 * DAY_MS;
     const isLate = due !== null && cEnd > due;
+    const base = principal + pendingInterest;
     const rate = monthlyRate + (isLate ? lateBonus : 0);
-    const base = isCompound ? principal + unpaidInterest : principal;
-    const interest = base * rate;
+    const juros = base * rate;
+    pendingInterest += juros;
+    periodEvents.push({ ts: cEnd, juros, saldoBase: base, isLate });
 
-    cycles.push({
-      cycleNumber: i + 1,
-      startDate: new Date(cStart).toISOString().split('T')[0],
-      endDate: new Date(cEnd).toISOString().split('T')[0],
-      interestAmount: interest,
-      status: 'pendente',
-      isLate,
-      principalBase: principal,
-    });
-
-    pendingInterestForAlloc += interest;
-
-    // Apply any payments that occurred up through this cycle's end.
-    while (payments.length && payments[0].ts <= cEnd) {
-      let pay = payments.shift()!.amount;
-      // 1) cover accrued interest first
-      const interestCover = Math.min(pay, pendingInterestForAlloc);
-      pendingInterestForAlloc -= interestCover;
-      pay -= interestCover;
-      // 2) remainder reduces principal
+    // aplica pagamentos cujas datas caem até o fim do ciclo
+    while (payIdx < sortedPayments.length && sortedPayments[payIdx].ts <= cEnd) {
+      let pay = sortedPayments[payIdx].amount;
+      const intCover = Math.min(pay, pendingInterest);
+      pendingInterest -= intCover;
+      pay -= intCover;
       if (pay > 0) {
         principal = Math.max(0, principal - pay);
       }
+      payIdx++;
     }
-
-    // For compound mode, any interest not yet paid capitalizes into base.
-    unpaidInterest = isCompound ? pendingInterestForAlloc : 0;
   }
 
-  // Current in-progress cycle (informational, zero interest until it completes)
+  const cycles: InterestCycle[] = periodEvents.map((e, i) => ({
+    cycleNumber: i + 1,
+    startDate: new Date(start + i * 30 * DAY_MS).toISOString().split('T')[0],
+    endDate: new Date(e.ts).toISOString().split('T')[0],
+    interestAmount: e.juros,
+    status: 'pendente',
+    isLate: e.isLate,
+    principalBase: e.saldoBase,
+  }));
+
   if (totalDays % 30 !== 0 || completedCycles === 0) {
     const cStart = start + completedCycles * 30 * DAY_MS;
     const cEnd = cStart + 30 * DAY_MS;
@@ -102,7 +228,7 @@ export function computeInterestCycles(loan: LoanLike, now: number = Date.now()):
       interestAmount: 0,
       status: 'em_curso',
       isLate,
-      principalBase: principal,
+      principalBase: principal + pendingInterest,
     });
   }
 
@@ -130,16 +256,15 @@ export function computeLoanOwed(loan: LoanLike, now: number = Date.now()): numbe
  * Returns { remaining, interestPaid, principalPaid, totalInterest, totalOwed, totalPaid }.
  */
 export function computeBalanceBreakdown(loan: LoanLike, now: number = Date.now()) {
-  const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0);
-  const cycles = computeInterestCycles(loan, now);
-  const totalInterest = cycles
-    .filter(c => c.status !== 'em_curso')
-    .reduce((s, c) => s + c.interestAmount, 0);
-  const totalOwed = loan.amount + totalInterest;
-  const interestPaid = Math.min(totalPaid, totalInterest);
-  const principalPaid = Math.max(0, totalPaid - totalInterest);
-  const remaining = Math.max(0, totalOwed - totalPaid);
-  return { remaining, interestPaid, principalPaid, totalInterest, totalOwed, totalPaid };
+  const r = calcularEmprestimoCompleto(loan, now);
+  return {
+    remaining: r.saldoDevedor,
+    interestPaid: r.totalJurosPagos,
+    principalPaid: r.totalPrincipalPago,
+    totalInterest: r.totalJurosCobrados,
+    totalOwed: loan.amount + r.totalJurosCobrados,
+    totalPaid: r.totalPago,
+  };
 }
 
 /**
