@@ -170,6 +170,22 @@ describe('computeInterestCyclesWithStatus', () => {
     expect(completed[1].status).toBe('pago');
     expect(completed[2].status).toBe('pendente');
   });
+
+  it('does not mark future cycles as paid when payment only covered older due interest and principal', () => {
+    const loan = makeLoan({
+      amount: 5000,
+      loan_date: daysAgo(21),
+      cycle_period: 'semanal',
+      interest_rate: 8,
+      interest_type: 'simples',
+      payments: [{ amount: 2900, date: daysAgo(14) }],
+    });
+    const cycles = computeInterestCyclesWithStatus(loan, NOW).filter(c => c.status !== 'em_curso');
+    expect(cycles).toHaveLength(3);
+    expect(cycles[0].status).toBe('pago');
+    expect(cycles[1].status).toBe('pendente');
+    expect(cycles[2].status).toBe('pendente');
+  });
 });
 
 describe('computeBalanceBreakdown', () => {
