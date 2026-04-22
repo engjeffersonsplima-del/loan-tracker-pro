@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Trash2, CheckCircle, Percent, Edit, Infinity as InfinityIcon, History, RotateCcw, RefreshCw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { computeInterestCyclesWithStatus, computeBalanceBreakdown, type LoanLike } from '@/lib/loanCalculations';
+import { computeInterestCyclesWithStatus, computeBalanceBreakdown, addCycles, type LoanLike } from '@/lib/loanCalculations';
 import { toast } from 'sonner';
 
 interface LoanDetailProps {
