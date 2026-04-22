@@ -81,10 +81,16 @@ export function useLoansDB(onCustomerCreated?: () => void) {
       paymentsByLoan.set(p.loan_id, list);
     });
 
-    const enriched: DBLoan[] = (loansData || []).map(l => ({
-      ...l,
-      payments: paymentsByLoan.get(l.id) || [],
-    }));
+    const enriched: DBLoan[] = (loansData || []).map(l => {
+      const loanPayments = paymentsByLoan.get(l.id) || [];
+      const totalPaid = loanPayments.reduce((sum, payment) => sum + payment.amount, 0);
+
+      return {
+        ...l,
+        payments: loanPayments,
+        status: l.status === 'pago' ? 'pago' : computeStatus(l.amount, totalPaid, l.due_date),
+      };
+    });
 
     setLoans(enriched);
     setLoading(false);

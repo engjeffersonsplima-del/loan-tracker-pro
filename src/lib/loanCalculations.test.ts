@@ -171,7 +171,7 @@ describe('computeInterestCyclesWithStatus', () => {
     expect(completed[2].status).toBe('pendente');
   });
 
-  it('does not mark future cycles as paid when payment only covered older due interest and principal', () => {
+  it('applies payment to due cycles in chronological order', () => {
     const loan = makeLoan({
       amount: 5000,
       loan_date: daysAgo(21),
@@ -185,6 +185,24 @@ describe('computeInterestCyclesWithStatus', () => {
     expect(cycles[0].status).toBe('pago');
     expect(cycles[1].status).toBe('pendente');
     expect(cycles[2].status).toBe('pendente');
+  });
+
+  it('does not count pending non-late cycles as overdue interest for indefinite loans', () => {
+    const loan = makeLoan({
+      amount: 1500,
+      loan_date: '2025-05-16',
+      due_date: null,
+      status: 'em_dia',
+      interest_rate: 20,
+      late_interest_rate: 0,
+      interest_type: 'simples',
+      cycle_period: 'mensal',
+      payments: [],
+    });
+    const overdueInterest = computeInterestCyclesWithStatus(loan, NOW)
+      .filter(c => c.status === 'pendente' && c.isLate)
+      .reduce((sum, c) => sum + c.interestAmount, 0);
+    expect(overdueInterest).toBe(0);
   });
 });
 
