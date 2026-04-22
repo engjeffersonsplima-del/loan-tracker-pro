@@ -256,16 +256,15 @@ export function computeLoanOwed(loan: LoanLike, now: number = Date.now()): numbe
  * Returns { remaining, interestPaid, principalPaid, totalInterest, totalOwed, totalPaid }.
  */
 export function computeBalanceBreakdown(loan: LoanLike, now: number = Date.now()) {
-  const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0);
-  const cycles = computeInterestCycles(loan, now);
-  const totalInterest = cycles
-    .filter(c => c.status !== 'em_curso')
-    .reduce((s, c) => s + c.interestAmount, 0);
-  const totalOwed = loan.amount + totalInterest;
-  const interestPaid = Math.min(totalPaid, totalInterest);
-  const principalPaid = Math.max(0, totalPaid - totalInterest);
-  const remaining = Math.max(0, totalOwed - totalPaid);
-  return { remaining, interestPaid, principalPaid, totalInterest, totalOwed, totalPaid };
+  const r = calcularEmprestimoCompleto(loan, now);
+  return {
+    remaining: r.saldoDevedor,
+    interestPaid: r.totalJurosPagos,
+    principalPaid: r.totalPrincipalPago,
+    totalInterest: r.totalJurosCobrados,
+    totalOwed: loan.amount + r.totalJurosCobrados,
+    totalPaid: r.totalPago,
+  };
 }
 
 /**
