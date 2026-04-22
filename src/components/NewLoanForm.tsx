@@ -25,6 +25,7 @@ interface NewLoanFormProps {
     interestType?: 'simples' | 'composto';
     indefiniteTerm?: boolean;
     loanType?: 'juros_mensal' | 'parcelas_fixas';
+    cyclePeriod?: 'mensal' | 'semanal';
   }) => void;
   onBack: () => void;
   editLoan?: Loan;
@@ -48,6 +49,7 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
   const [interestPaidThisMonth, setInterestPaidThisMonth] = useState(editLoan?.interestPaidThisMonth || false);
   const [interestType, setInterestType] = useState<'simples' | 'composto'>(editLoan?.interestType || 'simples');
   const [indefiniteTerm, setIndefiniteTerm] = useState<boolean>(editLoan?.indefiniteTerm || false);
+  const [cyclePeriod, setCyclePeriod] = useState<'mensal' | 'semanal'>(editLoan?.cyclePeriod || 'mensal');
 
   const preview = useMemo(() => {
     const total = parseFloat(amount) || 0;
@@ -75,6 +77,7 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
       interestType,
       indefiniteTerm,
       loanType,
+      cyclePeriod,
     });
   };
 
