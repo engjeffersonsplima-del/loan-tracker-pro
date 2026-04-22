@@ -56,6 +56,34 @@ export function getCycleDays(loan: Pick<LoanLike, 'cycle_period'>): number {
   return loan.cycle_period === 'semanal' ? 7 : 30;
 }
 
+/**
+ * Avança `n` ciclos a partir de `startTs`, respeitando o tipo de período:
+ * - 'semanal': soma exatos 7*n dias.
+ * - 'mensal': soma `n` MESES de calendário, mantendo o mesmo dia. Quando o
+ *   mês destino não tem aquele dia (ex.: 31/01 em fevereiro), pula para
+ *   o dia 1 do mês seguinte (ex.: 01/03), conforme regra de negócio.
+ * Retorna timestamp local 00:00.
+ */
+export function addCycles(
+  startTs: number,
+  n: number,
+  cyclePeriod?: string,
+): number {
+  if (cyclePeriod === 'semanal') {
+    return startTs + n * 7 * DAY_MS;
+  }
+  const d = new Date(startTs);
+  const baseDay = d.getDate();
+  const totalMonth = d.getMonth() + n;
+  const targetYear = d.getFullYear() + Math.floor(totalMonth / 12);
+  const targetMonth = ((totalMonth % 12) + 12) % 12;
+  const daysInTarget = new Date(targetYear, targetMonth + 1, 0).getDate();
+  if (baseDay <= daysInTarget) {
+    return new Date(targetYear, targetMonth, baseDay).getTime();
+  }
+  return new Date(targetYear, targetMonth + 1, 1).getTime();
+}
+
 export interface LoanComputationEvent {
   type: 'juros' | 'pagamento';
   date: string;
