@@ -58,7 +58,7 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
         if (loan.status !== 'pago') {
           const cycles = computeInterestCyclesWithStatus(dbLike);
           overdueInterest = cycles
-            .filter(c => c.status === 'pendente')
+            .filter(c => c.status === 'pendente' && c.isLate)
             .reduce((s, c) => s + c.interestAmount, 0);
           const r = calcularEmprestimoCompleto(dbLike);
           principalRemaining = Math.max(0, r.principalRestante);
