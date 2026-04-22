@@ -99,7 +99,7 @@ export function calcularEmprestimoCompleto(
   const periodoDias = getCycleDays(loan);
   const monthlyRate = (loan.interest_rate || 0) / 100;
   const lateBonus = (loan.late_interest_rate || 0) / 100;
-  const due = loan.due_date ? new Date(loan.due_date).getTime() : null;
+  const due = loan.due_date ? parseLocalDate(loan.due_date).getTime() : null;
 
   let principal = loan.amount;
   let jurosAcumulado = 0;
@@ -111,14 +111,14 @@ export function calcularEmprestimoCompleto(
   const eventos = [
     ...loan.payments.map(p => ({
       type: 'pagamento' as const,
-      ts: new Date(p.date).getTime(),
+      ts: parseLocalDate(p.date).getTime(),
       amount: p.amount,
     })),
   ].sort((a, b) => a.ts - b.ts);
   eventos.push({ type: 'pagamento' as const, ts: now, amount: 0 }); // marca "hoje"
   // O último evento serve só para acumular juros até hoje; o pagamento=0 é no-op.
 
-  let cursor = new Date(loan.loan_date).getTime();
+  let cursor = parseLocalDate(loan.loan_date).getTime();
 
   for (let i = 0; i < eventos.length; i++) {
     const ev = eventos[i];
