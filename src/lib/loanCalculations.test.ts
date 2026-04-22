@@ -182,20 +182,17 @@ describe('computeBalanceBreakdown', () => {
       payments: [{ amount: 300, date: daysAgo(0) }],
     });
     const b = computeBalanceBreakdown(loan, NOW);
-    // Sem pagamento intermediário: C1 100, C2 110 -> totalInterest 210.
-    // Pagamento de 300: cobre 210 juros + 90 principal.
-    expect(b.totalInterest).toBeCloseTo(210);
-    expect(b.interestPaid).toBeCloseTo(210);
-    expect(b.principalPaid).toBeCloseTo(90);
-    expect(b.remaining).toBeCloseTo(910);
+    // Juros sempre sobre principal: C1 100, C2 100 -> totalInterest 200.
+    // Pagamento de 300: cobre 200 juros + 100 principal -> remaining = 900+0 = 900.
+    expect(b.totalInterest).toBeCloseTo(200);
+    expect(b.interestPaid).toBeCloseTo(200);
+    expect(b.principalPaid).toBeCloseTo(100);
+    expect(b.remaining).toBeCloseTo(900);
   });
 });
 
-describe('payments reduce future interest (saldo-based)', () => {
+describe('payments reduce future interest (principal-based)', () => {
   it('R$5000 @ 8%/ciclo: pagamento entre ciclos reduz juros futuros', () => {
-    // Loan 90 days ago, 8%/ciclo. C1 fecha 60d atrás (saldo 5400).
-    // Pagamento 2900 (mesmo momento): cobre 400 juros + 2500 principal -> saldo 2500.
-    // C2: 2500*0.08=200 -> saldo 2700. C3: 2700*0.08=216 -> saldo 2916.
     const loan = makeLoan({
       amount: 5000,
       loan_date: daysAgo(90),
@@ -205,12 +202,15 @@ describe('payments reduce future interest (saldo-based)', () => {
     });
     const cycles = computeInterestCycles(loan, NOW).filter(c => c.status !== 'em_curso');
     expect(cycles).toHaveLength(3);
+    // C1: 5000*0.08=400. Pgto 2900 cobre 400 juros + 2500 principal -> principal=2500.
+    // C2: 2500*0.08=200. C3: 2500*0.08=200 (juros não capitalizam).
     expect(cycles[0].interestAmount).toBeCloseTo(400);
     expect(cycles[1].interestAmount).toBeCloseTo(200);
-    expect(cycles[2].interestAmount).toBeCloseTo(216);
+    expect(cycles[2].interestAmount).toBeCloseTo(200);
     const b = computeBalanceBreakdown(loan, NOW);
-    expect(b.totalInterest).toBeCloseTo(816);
-    expect(b.remaining).toBeCloseTo(2916);
+    expect(b.totalInterest).toBeCloseTo(800);
+    // remaining = principal 2500 + juros pendentes (C2+C3=400) = 2900.
+    expect(b.remaining).toBeCloseTo(2900);
   });
 
   it('sem pagamentos parciais: juros continuam sobre principal cheio', () => {
@@ -222,10 +222,10 @@ describe('payments reduce future interest (saldo-based)', () => {
       payments: [],
     });
     const cycles = computeInterestCycles(loan, NOW).filter(c => c.status !== 'em_curso');
-    // Saldo-based (juros não pagos capitalizam): 5000->5400->5832->6298.56
+    // Principal-based (não capitaliza): 400, 400, 400.
     expect(cycles[0].interestAmount).toBeCloseTo(400);
-    expect(cycles[1].interestAmount).toBeCloseTo(432);
-    expect(cycles[2].interestAmount).toBeCloseTo(466.56);
+    expect(cycles[1].interestAmount).toBeCloseTo(400);
+    expect(cycles[2].interestAmount).toBeCloseTo(400);
   });
 });
 
@@ -250,12 +250,11 @@ describe('computeLoansStats', () => {
     const stats = computeLoansStats(loans, NOW);
     expect(stats.totalLent).toBe(3000);
     expect(stats.totalReceived).toBe(200);
-    // Loan1 (1000, 60d, 10%): saldo 1210 (C1 100 + C2 110). Pagamento 200 hoje
-    //   abate juros -> remaining = 1210-200 = 1010 (saldo) mas totalOwed = 1210.
-    // Loan2 (2000, 30d, 5%): C1 100 -> totalOwed 2100, remaining 2100.
-    // Soma totalOwed = 3310. Pending = 3310-200 = 3110.
-    expect(stats.totalOwedWithInterest).toBeCloseTo(3310);
-    expect(stats.totalPending).toBeCloseTo(3110);
+    // Loan1 (1000, 60d, 10%): C1 100 + C2 100 = 200 juros -> totalOwed = 1200.
+    // Loan2 (2000, 30d, 5%): C1 100 -> totalOwed = 2100.
+    // Soma totalOwed = 3300. Pending = 3300-200 = 3100.
+    expect(stats.totalOwedWithInterest).toBeCloseTo(3300);
+    expect(stats.totalPending).toBeCloseTo(3100);
   });
 
   it('compound interest aggregation', () => {
@@ -269,8 +268,9 @@ describe('computeLoansStats', () => {
       }),
     ];
     const stats = computeLoansStats(loans, NOW);
-    expect(stats.totalOwedWithInterest).toBeCloseTo(1210);
-    expect(stats.totalPending).toBeCloseTo(610);
+    // Juros sobre principal: 100 + 100 = 200 -> totalOwed = 1200. Pago 600 -> pending 600.
+    expect(stats.totalOwedWithInterest).toBeCloseTo(1200);
+    expect(stats.totalPending).toBeCloseTo(600);
   });
 
   it('never negative pending', () => {
@@ -296,10 +296,6 @@ describe('computeLoansStats', () => {
   });
 
   it('compound + late bonus per-cycle', () => {
-    // 90 days ago, due 30 days ago. Cycles end at day 30,60,90 (60,30,0 days ago).
-    // Cycle1 (ended 60d ago, before due): rate 10% -> 1000*1.10 = 1100
-    // Cycle2 (ended 30d ago, == due, not >): rate 10% -> 1100*1.10 = 1210
-    // Actually due_date === cycle2 end, cEnd > due is false. Cycle3 late: 1210*1.15 = 1391.5
     const loans: LoanLike[] = [
       makeLoan({
         amount: 1000,
@@ -311,6 +307,7 @@ describe('computeLoansStats', () => {
       }),
     ];
     const stats = computeLoansStats(loans, NOW);
-    expect(stats.totalOwedWithInterest).toBeCloseTo(1391.5, 1);
+    // C1 (normal) 100, C2 (normal, due == cEnd) 100, C3 (late) 150 -> totalOwed = 1350.
+    expect(stats.totalOwedWithInterest).toBeCloseTo(1350, 1);
   });
 });
