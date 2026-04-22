@@ -135,7 +135,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
     // (principal restante + juros acumulados ainda não pagos) na data do ciclo.
     // Aplica pagamentos cronologicamente: cobrem juros pendentes primeiro, depois principal.
     const sortedPayments = [...loan.payments]
-      .map(p => ({ amount: p.amount, ts: new Date(p.date).getTime() }))
+      .map(p => ({ amount: p.amount, ts: parseLocalDate(p.date).getTime() }))
       .sort((a, b) => a.ts - b.ts);
     let payIdx = 0;
     let principal = loan.amount;
@@ -148,7 +148,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
         return { ...c, principalBase: principal };
       }
       const ov = cycleOverrides[c.cycleNumber];
-      const cycleEnd = new Date(c.endDate).getTime();
+      const cycleEnd = parseLocalDate(c.endDate).getTime();
       // Juros SIMPLES: base = apenas principal restante. Juros NÃO capitalizam.
       // Se parte do principal já foi paga em ciclos anteriores, a base diminui
       // automaticamente nos ciclos seguintes.
