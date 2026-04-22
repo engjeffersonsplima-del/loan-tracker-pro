@@ -164,6 +164,21 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
           </RadioGroup>
         </div>
 
+        {/* Período do ciclo de juros */}
+        <div className="space-y-2">
+          <Label className="text-xs font-medium">Período do Ciclo de Juros</Label>
+          <RadioGroup value={cyclePeriod} onValueChange={(v) => setCyclePeriod(v as 'mensal' | 'semanal')} className="flex gap-4">
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="mensal" id="ciclo_mensal" />
+              <Label htmlFor="ciclo_mensal" className="text-xs cursor-pointer">Mensal (a cada 30 dias)</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="semanal" id="ciclo_semanal" />
+              <Label htmlFor="ciclo_semanal" className="text-xs cursor-pointer">Semanal (a cada 7 dias)</Label>
+            </div>
+          </RadioGroup>
+        </div>
+
         {/* Juros pago este mês */}
         {loanType === 'juros_mensal' && (
           <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/30">

@@ -68,10 +68,12 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
       interest_rate: loan.interestRate,
       late_interest_rate: loan.lateInterestRate,
       interest_type: loan.interestType,
+      cycle_period: loan.cyclePeriod,
       payments: loan.payments.map(p => ({ amount: p.amount, date: p.date })),
     };
     const rawCycles = computeInterestCyclesWithStatus(loanLike);
     const DAY_MS = 1000 * 60 * 60 * 24;
+    const cycleDays = loan.cyclePeriod === 'semanal' ? 7 : 30;
     const due = loan.dueDate ? new Date(loan.dueDate).getTime() : null;
     const monthlyRate = (loan.interestRate || 0) / 100;
     const lateBonus = (loan.lateInterestRate || 0) / 100;
@@ -82,11 +84,11 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
       if (ov?.startDate) {
         const newStart = new Date(ov.startDate).getTime();
         cycles[i].startDate = new Date(newStart).toISOString().split('T')[0];
-        cycles[i].endDate = new Date(newStart + 30 * DAY_MS).toISOString().split('T')[0];
+        cycles[i].endDate = new Date(newStart + cycleDays * DAY_MS).toISOString().split('T')[0];
         for (let j = i + 1; j < cycles.length; j++) {
-          const s = newStart + (j - i) * 30 * DAY_MS;
+          const s = newStart + (j - i) * cycleDays * DAY_MS;
           cycles[j].startDate = new Date(s).toISOString().split('T')[0];
-          cycles[j].endDate = new Date(s + 30 * DAY_MS).toISOString().split('T')[0];
+          cycles[j].endDate = new Date(s + cycleDays * DAY_MS).toISOString().split('T')[0];
         }
       }
     }
@@ -314,7 +316,9 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                 </div>
               )}
               <div className="flex justify-between">
-                <span className="text-xs text-muted-foreground">Ciclos de 30 dias concluídos</span>
+                <span className="text-xs text-muted-foreground">
+                  Ciclos de {loan.cyclePeriod === 'semanal' ? '7' : '30'} dias concluídos
+                </span>
                 <span className="text-xs font-medium">{completedCycles}</span>
               </div>
               <div className="flex justify-between">
