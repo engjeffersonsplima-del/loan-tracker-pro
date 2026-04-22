@@ -88,7 +88,6 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
   // do tamanho do ciclo atual — assim garantimos 7 ou 30 dias exatos.
   useEffect(() => {
     const DAY_MS = 1000 * 60 * 60 * 24;
-    const cycleDays = loan.cyclePeriod === 'semanal' ? 7 : 30;
     const start = parseLocalDate(loan.loanDate).getTime();
     setCycleOverrides(prev => {
       let changed = false;
@@ -97,9 +96,18 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
         const ov = v as CycleOverride;
         if (ov?.startDate) {
           const ovTs = parseLocalDate(ov.startDate).getTime();
-          const deltaDays = Math.round((ovTs - start) / DAY_MS);
-          if (deltaDays < 0 || deltaDays % cycleDays !== 0) {
-            // remove startDate inválido, mas preserva amount/status
+          let valid = false;
+          if (loan.cyclePeriod === 'semanal') {
+            const deltaDays = Math.round((ovTs - start) / DAY_MS);
+            valid = deltaDays >= 0 && deltaDays % 7 === 0;
+          } else {
+            for (let n = 0; n <= 600; n++) {
+              const t = addCycles(start, n, 'mensal');
+              if (t === ovTs) { valid = true; break; }
+              if (t > ovTs) break;
+            }
+          }
+          if (!valid) {
             const { startDate, ...rest } = ov;
             if (Object.keys(rest).length > 0) next[Number(k)] = rest;
             changed = true;
