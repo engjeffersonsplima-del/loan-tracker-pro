@@ -99,7 +99,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
     const rawCycles = computeInterestCyclesWithStatus(loanLike);
     const DAY_MS = 1000 * 60 * 60 * 24;
     const cycleDays = loan.cyclePeriod === 'semanal' ? 7 : 30;
-    const due = loan.dueDate ? new Date(loan.dueDate).getTime() : null;
+    const due = loan.dueDate ? parseLocalDate(loan.dueDate).getTime() : null;
     const monthlyRate = (loan.interestRate || 0) / 100;
     const lateBonus = (loan.lateInterestRate || 0) / 100;
     // Start from base cycles, then cascade dates from overrides.
@@ -110,25 +110,25 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
         // Ignora overrides de startDate que não estejam alinhados com o fim do
         // ciclo anterior (ex: sobras de quando o ciclo era mensal e virou semanal).
         if (i > 0) {
-          const prevEnd = new Date(cycles[i - 1].endDate).getTime();
-          const ovStart = new Date(ov.startDate).getTime();
+          const prevEnd = parseLocalDate(cycles[i - 1].endDate).getTime();
+          const ovStart = parseLocalDate(ov.startDate).getTime();
           if (Math.abs(ovStart - prevEnd) > DAY_MS / 2) {
             continue;
           }
         }
-        const newStart = new Date(ov.startDate).getTime();
-        cycles[i].startDate = new Date(newStart).toISOString().split('T')[0];
-        cycles[i].endDate = new Date(newStart + cycleDays * DAY_MS).toISOString().split('T')[0];
+        const newStart = parseLocalDate(ov.startDate).getTime();
+        cycles[i].startDate = toLocalISO(newStart);
+        cycles[i].endDate = toLocalISO(newStart + cycleDays * DAY_MS);
         for (let j = i + 1; j < cycles.length; j++) {
           const s = newStart + (j - i) * cycleDays * DAY_MS;
-          cycles[j].startDate = new Date(s).toISOString().split('T')[0];
-          cycles[j].endDate = new Date(s + cycleDays * DAY_MS).toISOString().split('T')[0];
+          cycles[j].startDate = toLocalISO(s);
+          cycles[j].endDate = toLocalISO(s + cycleDays * DAY_MS);
         }
       }
     }
     cycles = cycles.map(c => ({
       ...c,
-      isLate: due !== null && new Date(c.endDate).getTime() > due,
+      isLate: due !== null && parseLocalDate(c.endDate).getTime() > due,
     }));
 
     // Recompute interest cycle-by-cycle on the LIVE outstanding balance
