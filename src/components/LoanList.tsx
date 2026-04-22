@@ -3,7 +3,7 @@ import { StatusBadge } from './StatusBadge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChevronRight, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { computeBalanceBreakdown } from '@/lib/loanCalculations';
+import { computeInterestCyclesWithStatus } from '@/lib/loanCalculations';
 
 interface LoanListProps {
   loans: Loan[];
@@ -51,11 +51,14 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
           cycle_period: loan.cyclePeriod,
           payments: loan.payments.map(p => ({ amount: p.amount, date: p.date })),
         };
-        // "Saldo devedor" = apenas juros pendentes (não pagos), sem somar o principal emprestado.
-        let pendingInterest = 0;
+        // "Juros em atraso" = soma dos juros de ciclos JÁ ENCERRADOS que ainda
+        // não foram pagos. Não inclui ciclo em curso nem juros já quitados.
+        let overdueInterest = 0;
         if (loan.status !== 'pago') {
-          const b = computeBalanceBreakdown(dbLike);
-          pendingInterest = Math.max(0, b.totalInterest - b.interestPaid);
+          const cycles = computeInterestCyclesWithStatus(dbLike);
+          overdueInterest = cycles
+            .filter(c => c.status === 'pendente')
+            .reduce((s, c) => s + c.interestAmount, 0);
         }
         return (
           <Card
@@ -72,9 +75,9 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
                 <p className="text-xs text-muted-foreground">
                   {formatCurrency(loan.amount)}
                 </p>
-                {pendingInterest > 0 && (
+                {overdueInterest > 0 && (
                   <p className="text-xs font-semibold text-destructive mt-0.5">
-                    Juros em atraso: {formatCurrency(pendingInterest)}
+                    Juros em atraso: {formatCurrency(overdueInterest)}
                   </p>
                 )}
               </div>
