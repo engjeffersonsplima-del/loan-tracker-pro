@@ -122,7 +122,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
 
   const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0);
 
-  const { remaining, totalWithInterest, completedCycles, accruedInterest, isOverdue, cycles, lateCyclesCount, interestPaid, principalPaid } = useMemo(() => {
+  const { remaining, totalWithInterest, completedCycles, accruedInterest, overdueInterest, isOverdue, cycles, lateCyclesCount, interestPaid, principalPaid } = useMemo(() => {
     const loanLike: LoanLike = {
       amount: loan.amount,
       loan_date: loan.loanDate,
@@ -245,6 +245,9 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
     const principalPaid = principalPaidTotal;
     const completedCycles = cyclesStatused.filter(c => c.status !== 'em_curso').length;
     const lateCyclesCount = cyclesStatused.filter(c => c.isLate && c.status !== 'em_curso').length;
+    const overdueInterest = cyclesStatused
+      .filter(c => c.status === 'pendente' && c.isLate)
+      .reduce((s, c) => s + c.interestAmount, 0);
     const now = new Date();
     const dueDateObj = loan.dueDate ? new Date(loan.dueDate) : null;
     const isOverdue = !!dueDateObj && now > dueDateObj && loan.status !== 'pago';
@@ -253,6 +256,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
       totalWithInterest: totalOwed,
       completedCycles,
       accruedInterest: totalInterest,
+      overdueInterest,
       isOverdue,
       cycles: cyclesStatused,
       lateCyclesCount,
@@ -397,6 +401,10 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
               <div className="flex justify-between">
                 <span className="text-xs text-muted-foreground">Juros acumulados</span>
                 <span className="text-xs font-medium text-warning">{formatCurrency(accruedInterest)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground">Juros em atraso</span>
+                <span className={`text-xs font-medium ${overdueInterest > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>{formatCurrency(overdueInterest)}</span>
               </div>
               {isOverdue && lateCyclesCount > 0 && (
                 <div className="flex justify-between border-t border-border pt-1">
