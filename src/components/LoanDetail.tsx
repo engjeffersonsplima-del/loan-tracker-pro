@@ -245,6 +245,9 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
     const principalPaid = principalPaidTotal;
     const completedCycles = cyclesStatused.filter(c => c.status !== 'em_curso').length;
     const lateCyclesCount = cyclesStatused.filter(c => c.isLate && c.status !== 'em_curso').length;
+    const overdueInterest = cyclesStatused
+      .filter(c => c.status === 'pendente' && c.isLate)
+      .reduce((s, c) => s + c.interestAmount, 0);
     const now = new Date();
     const dueDateObj = loan.dueDate ? new Date(loan.dueDate) : null;
     const isOverdue = !!dueDateObj && now > dueDateObj && loan.status !== 'pago';
@@ -253,6 +256,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
       totalWithInterest: totalOwed,
       completedCycles,
       accruedInterest: totalInterest,
+      overdueInterest,
       isOverdue,
       cycles: cyclesStatused,
       lateCyclesCount,
