@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Trash2, CheckCircle, Percent, Edit, Infinity as InfinityIcon, History, RotateCcw, RefreshCw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { computeInterestCyclesWithStatus, computeBalanceBreakdown, type LoanLike } from '@/lib/loanCalculations';
+import { computeInterestCyclesWithStatus, computeBalanceBreakdown, addCycles, type LoanLike } from '@/lib/loanCalculations';
 import { toast } from 'sonner';
 
 interface LoanDetailProps {
@@ -88,7 +88,6 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
   // do tamanho do ciclo atual — assim garantimos 7 ou 30 dias exatos.
   useEffect(() => {
     const DAY_MS = 1000 * 60 * 60 * 24;
-    const cycleDays = loan.cyclePeriod === 'semanal' ? 7 : 30;
     const start = parseLocalDate(loan.loanDate).getTime();
     setCycleOverrides(prev => {
       let changed = false;
@@ -97,9 +96,18 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
         const ov = v as CycleOverride;
         if (ov?.startDate) {
           const ovTs = parseLocalDate(ov.startDate).getTime();
-          const deltaDays = Math.round((ovTs - start) / DAY_MS);
-          if (deltaDays < 0 || deltaDays % cycleDays !== 0) {
-            // remove startDate inválido, mas preserva amount/status
+          let valid = false;
+          if (loan.cyclePeriod === 'semanal') {
+            const deltaDays = Math.round((ovTs - start) / DAY_MS);
+            valid = deltaDays >= 0 && deltaDays % 7 === 0;
+          } else {
+            for (let n = 0; n <= 600; n++) {
+              const t = addCycles(start, n, 'mensal');
+              if (t === ovTs) { valid = true; break; }
+              if (t > ovTs) break;
+            }
+          }
+          if (!valid) {
             const { startDate, ...rest } = ov;
             if (Object.keys(rest).length > 0) next[Number(k)] = rest;
             changed = true;
@@ -128,7 +136,6 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
     };
     const rawCycles = computeInterestCyclesWithStatus(loanLike);
     const DAY_MS = 1000 * 60 * 60 * 24;
-    const cycleDays = loan.cyclePeriod === 'semanal' ? 7 : 30;
     const due = loan.dueDate ? parseLocalDate(loan.dueDate).getTime() : null;
     const monthlyRate = (loan.interestRate || 0) / 100;
     const lateBonus = (loan.lateInterestRate || 0) / 100;
@@ -148,11 +155,11 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
         }
         const newStart = parseLocalDate(ov.startDate).getTime();
         cycles[i].startDate = toLocalISO(newStart);
-        cycles[i].endDate = toLocalISO(newStart + cycleDays * DAY_MS);
+        cycles[i].endDate = toLocalISO(addCycles(newStart, 1, loan.cyclePeriod));
         for (let j = i + 1; j < cycles.length; j++) {
-          const s = newStart + (j - i) * cycleDays * DAY_MS;
+          const s = addCycles(newStart, j - i, loan.cyclePeriod);
           cycles[j].startDate = toLocalISO(s);
-          cycles[j].endDate = toLocalISO(s + cycleDays * DAY_MS);
+          cycles[j].endDate = toLocalISO(addCycles(s, 1, loan.cyclePeriod));
         }
       }
     }

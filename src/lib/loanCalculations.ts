@@ -56,6 +56,34 @@ export function getCycleDays(loan: Pick<LoanLike, 'cycle_period'>): number {
   return loan.cycle_period === 'semanal' ? 7 : 30;
 }
 
+/**
+ * Avança `n` ciclos a partir de `startTs`, respeitando o tipo de período:
+ * - 'semanal': soma exatos 7*n dias.
+ * - 'mensal': soma `n` MESES de calendário, mantendo o mesmo dia. Quando o
+ *   mês destino não tem aquele dia (ex.: 31/01 em fevereiro), pula para
+ *   o dia 1 do mês seguinte (ex.: 01/03), conforme regra de negócio.
+ * Retorna timestamp local 00:00.
+ */
+export function addCycles(
+  startTs: number,
+  n: number,
+  cyclePeriod?: string,
+): number {
+  if (cyclePeriod === 'semanal') {
+    return startTs + n * 7 * DAY_MS;
+  }
+  const d = new Date(startTs);
+  const baseDay = d.getDate();
+  const totalMonth = d.getMonth() + n;
+  const targetYear = d.getFullYear() + Math.floor(totalMonth / 12);
+  const targetMonth = ((totalMonth % 12) + 12) % 12;
+  const daysInTarget = new Date(targetYear, targetMonth + 1, 0).getDate();
+  if (baseDay <= daysInTarget) {
+    return new Date(targetYear, targetMonth, baseDay).getTime();
+  }
+  return new Date(targetYear, targetMonth + 1, 1).getTime();
+}
+
 export interface LoanComputationEvent {
   type: 'juros' | 'pagamento';
   date: string;
@@ -105,7 +133,6 @@ export function calcularEmprestimoCompleto(
   loan: LoanLike,
   now: number = Date.now()
 ): LoanComputationResult {
-  const periodoDias = getCycleDays(loan);
   const monthlyRate = (loan.interest_rate || 0) / 100;
   const lateBonus = (loan.late_interest_rate || 0) / 100;
   const due = loan.due_date ? parseLocalDate(loan.due_date).getTime() : null;
@@ -127,15 +154,16 @@ export function calcularEmprestimoCompleto(
   eventos.push({ type: 'pagamento' as const, ts: now, amount: 0 }); // marca "hoje"
   // O último evento serve só para acumular juros até hoje; o pagamento=0 é no-op.
 
-  let cursor = parseLocalDate(loan.loan_date).getTime();
+  const startTs = parseLocalDate(loan.loan_date).getTime();
+  let cursor = startTs;
+  let cyclesElapsed = 0;
 
   for (let i = 0; i < eventos.length; i++) {
     const ev = eventos[i];
-    const diffDias = Math.max(0, (ev.ts - cursor) / DAY_MS);
-    const periodos = Math.floor(diffDias / periodoDias);
-
-    for (let p = 0; p < periodos; p++) {
-      const periodEnd = cursor + periodoDias * DAY_MS;
+    // Fecha quantos ciclos couberem até este evento (semanal=7d, mensal=mês de calendário).
+    while (true) {
+      const periodEnd = addCycles(startTs, cyclesElapsed + 1, loan.cycle_period);
+      if (periodEnd > ev.ts) break;
       const isLate = due !== null && periodEnd > due;
       // Base = apenas o principal restante (juros não capitalizam).
       const base = principal;
@@ -152,6 +180,7 @@ export function calcularEmprestimoCompleto(
         isLate,
       });
       cursor = periodEnd;
+      cyclesElapsed += 1;
     }
 
     if (ev.type === 'pagamento' && ev.amount > 0) {
@@ -203,9 +232,11 @@ export function calcularEmprestimoCompleto(
 export function computeInterestCycles(loan: LoanLike, now: number = Date.now()): InterestCycle[] {
   const start = parseLocalDate(loan.loan_date).getTime();
   const due = loan.due_date ? parseLocalDate(loan.due_date).getTime() : null;
-  const cycleDays = getCycleDays(loan);
-  const totalDays = Math.max(0, Math.floor((now - start) / DAY_MS));
-  const completedCycles = Math.floor(totalDays / cycleDays);
+  // Conta quantos ciclos completos cabem entre start e now (semanal=7d, mensal=mês calendário).
+  let completedCycles = 0;
+  while (addCycles(start, completedCycles + 1, loan.cycle_period) <= now) {
+    completedCycles += 1;
+  }
 
   // Reproduz os ciclos completos calculados pelo motor orientado a eventos,
   // garantindo base de cálculo sobre saldo vivo (principal + juros pendentes).
@@ -222,8 +253,7 @@ export function computeInterestCycles(loan: LoanLike, now: number = Date.now()):
   let payIdx = 0;
 
   for (let i = 0; i < completedCycles; i++) {
-    const cStart = start + i * cycleDays * DAY_MS;
-    const cEnd = start + (i + 1) * cycleDays * DAY_MS;
+    const cEnd = addCycles(start, i + 1, loan.cycle_period);
     const isLate = due !== null && cEnd > due;
     // Base = apenas o principal restante (juros NÃO capitalizam).
     const base = principal;
@@ -247,7 +277,7 @@ export function computeInterestCycles(loan: LoanLike, now: number = Date.now()):
 
   const cycles: InterestCycle[] = periodEvents.map((e, i) => ({
     cycleNumber: i + 1,
-    startDate: toLocalISO(start + i * cycleDays * DAY_MS),
+    startDate: toLocalISO(addCycles(start, i, loan.cycle_period)),
     endDate: toLocalISO(e.ts),
     interestAmount: e.juros,
     status: 'pendente',
@@ -255,9 +285,10 @@ export function computeInterestCycles(loan: LoanLike, now: number = Date.now()):
     principalBase: e.saldoBase,
   }));
 
-  if (totalDays % cycleDays !== 0 || completedCycles === 0) {
-    const cStart = start + completedCycles * cycleDays * DAY_MS;
-    const cEnd = cStart + cycleDays * DAY_MS;
+  const lastCompletedEnd = addCycles(start, completedCycles, loan.cycle_period);
+  if (lastCompletedEnd < now || completedCycles === 0) {
+    const cStart = lastCompletedEnd;
+    const cEnd = addCycles(start, completedCycles + 1, loan.cycle_period);
     const isLate = due !== null && now > due;
     cycles.push({
       cycleNumber: completedCycles + 1,
