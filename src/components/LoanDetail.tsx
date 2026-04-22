@@ -35,6 +35,23 @@ function formatDateBR(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('pt-BR');
 }
 
+/** Parse YYYY-MM-DD as a LOCAL date at 00:00 (avoids UTC shift). */
+function parseLocalDate(dateStr: string): Date {
+  if (!dateStr) return new Date(NaN);
+  const iso = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3]);
+  return new Date(dateStr);
+}
+
+/** Format a timestamp as YYYY-MM-DD using local time (no UTC shift). */
+function toLocalISO(ts: number): string {
+  const d = new Date(ts);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, onEdit, onUpdateStatus, onUpdatePayment, onDeletePayment, onRecalculate }: LoanDetailProps) {
   const [payAmount, setPayAmount] = useState('');
   const [recalcTick, setRecalcTick] = useState(0);
@@ -65,6 +82,36 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
   useEffect(() => {
     try { localStorage.setItem(overrideKey, JSON.stringify(cycleOverrides)); } catch {}
   }, [cycleOverrides, overrideKey]);
+
+  // Quando muda o período do ciclo (mensal↔semanal), descarta overrides de
+  // startDate cujo alinhamento (delta em dias desde loan_date) não é múltiplo
+  // do tamanho do ciclo atual — assim garantimos 7 ou 30 dias exatos.
+  useEffect(() => {
+    const DAY_MS = 1000 * 60 * 60 * 24;
+    const cycleDays = loan.cyclePeriod === 'semanal' ? 7 : 30;
+    const start = parseLocalDate(loan.loanDate).getTime();
+    setCycleOverrides(prev => {
+      let changed = false;
+      const next: Record<number, CycleOverride> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const ov = v as CycleOverride;
+        if (ov?.startDate) {
+          const ovTs = parseLocalDate(ov.startDate).getTime();
+          const deltaDays = Math.round((ovTs - start) / DAY_MS);
+          if (deltaDays < 0 || deltaDays % cycleDays !== 0) {
+            // remove startDate inválido, mas preserva amount/status
+            const { startDate, ...rest } = ov;
+            if (Object.keys(rest).length > 0) next[Number(k)] = rest;
+            changed = true;
+            return;
+          }
+        }
+        next[Number(k)] = ov;
+      });
+      return changed ? next : prev;
+    });
+  }, [loan.cyclePeriod, loan.loanDate]);
+
   const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0);
 
   const { remaining, totalWithInterest, completedCycles, accruedInterest, isOverdue, cycles, lateCyclesCount, interestPaid, principalPaid } = useMemo(() => {
@@ -82,7 +129,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
     const rawCycles = computeInterestCyclesWithStatus(loanLike);
     const DAY_MS = 1000 * 60 * 60 * 24;
     const cycleDays = loan.cyclePeriod === 'semanal' ? 7 : 30;
-    const due = loan.dueDate ? new Date(loan.dueDate).getTime() : null;
+    const due = loan.dueDate ? parseLocalDate(loan.dueDate).getTime() : null;
     const monthlyRate = (loan.interestRate || 0) / 100;
     const lateBonus = (loan.lateInterestRate || 0) / 100;
     // Start from base cycles, then cascade dates from overrides.
@@ -93,32 +140,32 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
         // Ignora overrides de startDate que não estejam alinhados com o fim do
         // ciclo anterior (ex: sobras de quando o ciclo era mensal e virou semanal).
         if (i > 0) {
-          const prevEnd = new Date(cycles[i - 1].endDate).getTime();
-          const ovStart = new Date(ov.startDate).getTime();
+          const prevEnd = parseLocalDate(cycles[i - 1].endDate).getTime();
+          const ovStart = parseLocalDate(ov.startDate).getTime();
           if (Math.abs(ovStart - prevEnd) > DAY_MS / 2) {
             continue;
           }
         }
-        const newStart = new Date(ov.startDate).getTime();
-        cycles[i].startDate = new Date(newStart).toISOString().split('T')[0];
-        cycles[i].endDate = new Date(newStart + cycleDays * DAY_MS).toISOString().split('T')[0];
+        const newStart = parseLocalDate(ov.startDate).getTime();
+        cycles[i].startDate = toLocalISO(newStart);
+        cycles[i].endDate = toLocalISO(newStart + cycleDays * DAY_MS);
         for (let j = i + 1; j < cycles.length; j++) {
           const s = newStart + (j - i) * cycleDays * DAY_MS;
-          cycles[j].startDate = new Date(s).toISOString().split('T')[0];
-          cycles[j].endDate = new Date(s + cycleDays * DAY_MS).toISOString().split('T')[0];
+          cycles[j].startDate = toLocalISO(s);
+          cycles[j].endDate = toLocalISO(s + cycleDays * DAY_MS);
         }
       }
     }
     cycles = cycles.map(c => ({
       ...c,
-      isLate: due !== null && new Date(c.endDate).getTime() > due,
+      isLate: due !== null && parseLocalDate(c.endDate).getTime() > due,
     }));
 
     // Recompute interest cycle-by-cycle on the LIVE outstanding balance
     // (principal restante + juros acumulados ainda não pagos) na data do ciclo.
     // Aplica pagamentos cronologicamente: cobrem juros pendentes primeiro, depois principal.
     const sortedPayments = [...loan.payments]
-      .map(p => ({ amount: p.amount, ts: new Date(p.date).getTime() }))
+      .map(p => ({ amount: p.amount, ts: parseLocalDate(p.date).getTime() }))
       .sort((a, b) => a.ts - b.ts);
     let payIdx = 0;
     let principal = loan.amount;
@@ -131,7 +178,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
         return { ...c, principalBase: principal };
       }
       const ov = cycleOverrides[c.cycleNumber];
-      const cycleEnd = new Date(c.endDate).getTime();
+      const cycleEnd = parseLocalDate(c.endDate).getTime();
       // Juros SIMPLES: base = apenas principal restante. Juros NÃO capitalizam.
       // Se parte do principal já foi paga em ciclos anteriores, a base diminui
       // automaticamente nos ciclos seguintes.
