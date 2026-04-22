@@ -3,7 +3,7 @@ import { StatusBadge } from './StatusBadge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChevronRight, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { computeInterestCyclesWithStatus, calcularEmprestimoCompleto } from '@/lib/loanCalculations';
+import { computeInterestCyclesWithStatus } from '@/lib/loanCalculations';
 
 interface LoanListProps {
   loans: Loan[];
