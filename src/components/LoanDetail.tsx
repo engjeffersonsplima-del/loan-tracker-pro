@@ -474,7 +474,7 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
                         )}
                       </span>
                       <span className="text-muted-foreground">
-                        {new Date(c.startDate).toLocaleDateString('pt-BR')} → {new Date(c.endDate).toLocaleDateString('pt-BR')}
+                        {formatDateBR(c.startDate)} → {formatDateBR(c.endDate)}
                       </span>
                       {c.principalBase !== undefined && (
                         <span className="text-[10px] text-muted-foreground">
