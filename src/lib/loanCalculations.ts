@@ -24,6 +24,24 @@ export interface InterestCycle {
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
+/**
+ * Parse a date string (YYYY-MM-DD or DD/MM/YYYY) as a LOCAL date at 00:00.
+ * Avoids the UTC shift of `new Date("2025-06-14")` which renders as the
+ * previous day in negative UTC offsets (e.g. GMT-3 → 13/06/2025).
+ */
+function parseLocalDate(dateStr: string): Date {
+  if (!dateStr) return new Date(NaN);
+  const iso = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3]);
+  const dmy = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (dmy) {
+    let y = parseInt(dmy[3]);
+    if (y < 100) y += 2000;
+    return new Date(y, parseInt(dmy[2]) - 1, parseInt(dmy[1]));
+  }
+  return new Date(dateStr);
+}
+
 /** Retorna o tamanho do ciclo em dias com base em loan.cycle_period. */
 export function getCycleDays(loan: Pick<LoanLike, 'cycle_period'>): number {
   return loan.cycle_period === 'semanal' ? 7 : 30;
