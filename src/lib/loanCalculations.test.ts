@@ -236,14 +236,16 @@ describe('computeLoansStats', () => {
     const loans: LoanLike[] = [
       makeLoan({
         amount: 1000,
-        loan_date: daysAgo(60),
+        loan_date: daysAgo(14),
+        cycle_period: 'semanal',
         interest_rate: 10,
         interest_type: 'simples',
         payments: [{ amount: 200, date: daysAgo(0) }],
       }),
       makeLoan({
         amount: 2000,
-        loan_date: daysAgo(30),
+        loan_date: daysAgo(7),
+        cycle_period: 'semanal',
         interest_rate: 5,
         interest_type: 'simples',
         payments: [],
