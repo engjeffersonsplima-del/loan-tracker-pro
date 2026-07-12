@@ -50,15 +50,22 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
   const [interestType, setInterestType] = useState<'simples' | 'composto'>(editLoan?.interestType || 'simples');
   const [indefiniteTerm, setIndefiniteTerm] = useState<boolean>(editLoan?.indefiniteTerm || false);
   const [cyclePeriod, setCyclePeriod] = useState<'mensal' | 'semanal'>(editLoan?.cyclePeriod || 'mensal');
+  const [fixedInstallmentValue, setFixedInstallmentValue] = useState<string>('');
 
   const preview = useMemo(() => {
     const total = parseFloat(amount) || 0;
     const parcelas = parseInt(installments) || 1;
     const rate = parseFloat(interestRate) || 0;
     const totalWithInterest = total * (1 + rate / 100);
-    const valorParcela = parcelas > 0 ? totalWithInterest / parcelas : 0;
+    const fixedVal = parseFloat(fixedInstallmentValue) || 0;
+    const valorParcela =
+      loanType === 'parcelas_fixas' && fixedVal > 0
+        ? fixedVal
+        : parcelas > 0
+          ? totalWithInterest / parcelas
+          : 0;
     return { total, parcelas, valorParcela, totalWithInterest, rate };
-  }, [amount, installments, interestRate]);
+  }, [amount, installments, interestRate, fixedInstallmentValue, loanType]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,6 +170,28 @@ export function NewLoanForm({ onSave, onBack, editLoan }: NewLoanFormProps) {
             </div>
           </RadioGroup>
         </div>
+
+        {/* Valor da parcela fixa */}
+        {loanType === 'parcelas_fixas' && (
+          <div className="space-y-1.5">
+            <Label htmlFor="fixedInstallmentValue" className="text-xs font-medium flex items-center gap-1">
+              <CreditCard className="h-3 w-3" /> Valor da parcela fixa (R$)
+            </Label>
+            <Input
+              id="fixedInstallmentValue"
+              type="number"
+              step="0.01"
+              min="0"
+              value={fixedInstallmentValue}
+              onChange={e => setFixedInstallmentValue(e.target.value)}
+              placeholder="Deixe em branco para calcular automaticamente"
+              className="h-11 rounded-xl"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Se preenchido, será usado como valor de cada parcela no resumo.
+            </p>
+          </div>
+        )}
 
         {/* Período do ciclo de juros */}
         <div className="space-y-2">
