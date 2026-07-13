@@ -46,6 +46,21 @@ function computeStatus(amount: number, totalPaid: number, dueDate: string | null
   return now > due ? 'atrasado' : 'em_dia';
 }
 
+/**
+ * Resolve o status exibido preservando escolhas manuais do usuário
+ * (ex.: marcou como "atrasado" via Select). Só recalcula automaticamente
+ * quando o valor salvo é "em_dia" — nesse caso detecta atraso pelo vencimento.
+ */
+function resolveDisplayStatus(dbStatus: string, amount: number, totalPaid: number, dueDate: string | null): string {
+  if (totalPaid >= amount) return 'pago';
+  // Respeita status definido manualmente pelo usuário
+  if (dbStatus === 'pago' || dbStatus === 'atrasado' || dbStatus === 'parcial') {
+    return dbStatus;
+  }
+  // Apenas quando está "em_dia" (padrão) computamos automaticamente
+  return computeStatus(amount, totalPaid, dueDate);
+}
+
 export function useLoansDB(onCustomerCreated?: () => void) {
   const { user } = useAuth();
   const [loans, setLoans] = useState<DBLoan[]>([]);
@@ -88,7 +103,7 @@ export function useLoansDB(onCustomerCreated?: () => void) {
       return {
         ...l,
         payments: loanPayments,
-        status: l.status === 'pago' ? 'pago' : computeStatus(l.amount, totalPaid, l.due_date),
+        status: resolveDisplayStatus(l.status, l.amount, totalPaid, l.due_date),
       };
     });
 
