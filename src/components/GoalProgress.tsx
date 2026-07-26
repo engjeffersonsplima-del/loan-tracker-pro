@@ -5,13 +5,14 @@ import { Target } from 'lucide-react';
 interface GoalProgressProps {
   target: number;
   received: number;
+  hidden?: boolean;
 }
 
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function GoalProgress({ target, received }: GoalProgressProps) {
+export function GoalProgress({ target, received, hidden }: GoalProgressProps) {
   if (target === 0) return null;
   const pct = Math.min(100, Math.round((received / target) * 100));
 
@@ -29,8 +30,8 @@ export function GoalProgress({ target, received }: GoalProgressProps) {
         </div>
         <Progress value={pct} className="h-2 mb-2" />
         <div className="flex justify-between text-[11px] text-muted-foreground">
-          <span>{formatCurrency(received)} recebido</span>
-          <span>Meta: {formatCurrency(target)}</span>
+          <span>{hidden ? '••••••' : formatCurrency(received)} recebido</span>
+          <span>Meta: {hidden ? '••••••' : formatCurrency(target)}</span>
         </div>
       </CardContent>
     </Card>
