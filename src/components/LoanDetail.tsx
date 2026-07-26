@@ -18,6 +18,7 @@ interface LoanDetailProps {
   onDelete: (loanId: string) => void;
   onEdit: (loan: Loan) => void;
   onUpdateStatus?: (loanId: string, status: string) => void;
+  onUpdateLoanDate?: (loanId: string, loanDate: string) => void;
   onUpdatePayment?: (paymentId: string, data: { amount?: number; date?: string }) => void;
   onDeletePayment?: (paymentId: string) => void;
   onRecalculate?: () => void | Promise<void>;
@@ -52,8 +53,11 @@ function toLocalISO(ts: number): string {
   return `${y}-${m}-${day}`;
 }
 
-export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, onEdit, onUpdateStatus, onUpdatePayment, onDeletePayment, onRecalculate }: LoanDetailProps) {
+export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, onEdit, onUpdateStatus, onUpdateLoanDate, onUpdatePayment, onDeletePayment, onRecalculate }: LoanDetailProps) {
   const [payAmount, setPayAmount] = useState('');
+  const [editingLoanDate, setEditingLoanDate] = useState(false);
+  const [loanDateDraft, setLoanDateDraft] = useState(loan.loanDate);
+  useEffect(() => { setLoanDateDraft(loan.loanDate); }, [loan.loanDate]);
   const [recalcTick, setRecalcTick] = useState(0);
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
@@ -369,6 +373,54 @@ export function LoanDetail({ loan, onBack, onAddPayment, onMarkPaid, onDelete, o
           <div className="flex justify-between">
             <span className="text-sm text-muted-foreground">Valor emprestado</span>
             <span className="text-sm font-medium">{formatCurrency(loan.amount)}</span>
+          </div>
+          <div className="flex justify-between items-center gap-2">
+            <span className="text-sm text-muted-foreground">Data de solicitação</span>
+            {editingLoanDate && onUpdateLoanDate ? (
+              <div className="flex items-center gap-1">
+                <Input
+                  type="date"
+                  value={loanDateDraft}
+                  onChange={e => setLoanDateDraft(e.target.value)}
+                  className="h-8 text-xs w-36"
+                />
+                <Button
+                  size="sm"
+                  className="h-8 px-2 text-xs"
+                  onClick={() => {
+                    if (loanDateDraft && loanDateDraft !== loan.loanDate) {
+                      onUpdateLoanDate(loan.id, loanDateDraft);
+                    }
+                    setEditingLoanDate(false);
+                  }}
+                >
+                  Salvar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-2 text-xs"
+                  onClick={() => { setLoanDateDraft(loan.loanDate); setEditingLoanDate(false); }}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            ) : (
+              <span className="text-sm flex items-center gap-1">
+                {formatDateBR(loan.loanDate)}
+                {onUpdateLoanDate && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 text-primary"
+                    onClick={() => setEditingLoanDate(true)}
+                    aria-label="Editar data de solicitação"
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                )}
+              </span>
+            )}
           </div>
           
           {/* Interest info */}

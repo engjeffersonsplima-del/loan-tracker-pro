@@ -322,6 +322,18 @@ export function useLoansDB(onCustomerCreated?: () => void) {
     }
   }, [user, fetchLoans]);
 
+  const updateLoanDate = useCallback(async (id: string, loanDate: string) => {
+    if (!user) return;
+    const { error } = await supabase.from('loans').update({ loan_date: loanDate }).eq('id', id);
+    if (error) {
+      toast.error('Erro ao alterar data de solicitação');
+      console.error(error);
+    } else {
+      toast.success('Data de solicitação atualizada!');
+      await fetchLoans();
+    }
+  }, [user, fetchLoans]);
+
   const updatePayment = useCallback(async (paymentId: string, data: { amount?: number; date?: string }) => {
     if (!user) return;
     const { error } = await supabase.from('payments').update(data).eq('id', paymentId);
@@ -346,5 +358,5 @@ export function useLoansDB(onCustomerCreated?: () => void) {
     }
   }, [user, fetchLoans]);
 
-  return { loans, loading, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, updateStatus, updatePayment, deletePayment, refetch: fetchLoans };
+  return { loans, loading, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, updateStatus, updateLoanDate, updatePayment, deletePayment, refetch: fetchLoans };
 }
