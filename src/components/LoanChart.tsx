@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -7,16 +6,16 @@ import { Eye, EyeOff } from 'lucide-react';
 interface LoanChartProps {
   totalReceived: number;
   totalPending: number;
+  hidden?: boolean;
+  onToggleHidden?: () => void;
 }
 
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function LoanChart({ totalReceived, totalPending }: LoanChartProps) {
+export function LoanChart({ totalReceived, totalPending, hidden = false, onToggleHidden }: LoanChartProps) {
   if (totalReceived === 0 && totalPending === 0) return null;
-
-  const [hidden, setHidden] = useState(false);
 
   const data = [
     { name: 'Recebido', value: totalReceived },
@@ -33,7 +32,7 @@ export function LoanChart({ totalReceived, totalPending }: LoanChartProps) {
           type="button"
           size="icon"
           variant="ghost"
-          onClick={() => setHidden(h => !h)}
+          onClick={() => onToggleHidden?.()}
           className="h-7 w-7 rounded-lg text-muted-foreground"
           aria-label={hidden ? 'Mostrar valores' : 'Ocultar valores'}
         >
