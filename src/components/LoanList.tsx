@@ -11,13 +11,14 @@ interface LoanListProps {
   onEdit?: (loan: Loan) => void;
   filter?: string;
   search?: string;
+  hidden?: boolean;
 }
 
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListProps) {
+export function LoanList({ loans, onSelect, onEdit, filter, search, hidden }: LoanListProps) {
   let filtered = loans;
 
   if (filter && filter !== 'todos') {
@@ -70,10 +71,10 @@ export function LoanList({ loans, onSelect, onEdit, filter, search }: LoanListPr
                   <StatusBadge status={loan.status} />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {formatCurrency(loan.amount)}
+                  {hidden ? '••••••' : formatCurrency(loan.amount)}
                 </p>
                 <p className={`text-xs mt-0.5 ${overdueInterest > 0 ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
-                  Juros em atraso: {formatCurrency(overdueInterest)}
+                  Juros em atraso: {hidden ? '••••••' : formatCurrency(overdueInterest)}
                 </p>
               </div>
               {onEdit && (
