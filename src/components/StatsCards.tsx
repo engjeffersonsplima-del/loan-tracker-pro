@@ -6,18 +6,20 @@ interface StatsCardsProps {
   totalReceived: number;
   totalPending: number;
   overdue: number;
+  hidden?: boolean;
 }
 
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function StatsCards({ totalLent, totalReceived, totalPending, overdue }: StatsCardsProps) {
+export function StatsCards({ totalLent, totalReceived, totalPending, overdue, hidden }: StatsCardsProps) {
+  const mask = (v: string) => (hidden ? '••••••' : v);
   const cards = [
-    { label: 'Emprestado', value: formatCurrency(totalLent), icon: DollarSign, iconBg: 'bg-primary/10', iconClass: 'text-primary' },
-    { label: 'Recebido', value: formatCurrency(totalReceived), icon: TrendingUp, iconBg: 'bg-primary/10', iconClass: 'text-primary' },
-    { label: 'A Receber', value: formatCurrency(totalPending), icon: TrendingDown, iconBg: 'bg-warning/10', iconClass: 'text-warning' },
-    { label: 'Atrasados', value: String(overdue), icon: AlertTriangle, iconBg: 'bg-destructive/10', iconClass: 'text-destructive' },
+    { label: 'Emprestado', value: mask(formatCurrency(totalLent)), icon: DollarSign, iconBg: 'bg-primary/10', iconClass: 'text-primary' },
+    { label: 'Recebido', value: mask(formatCurrency(totalReceived)), icon: TrendingUp, iconBg: 'bg-primary/10', iconClass: 'text-primary' },
+    { label: 'A Receber', value: mask(formatCurrency(totalPending)), icon: TrendingDown, iconBg: 'bg-warning/10', iconClass: 'text-warning' },
+    { label: 'Atrasados', value: hidden ? '••' : String(overdue), icon: AlertTriangle, iconBg: 'bg-destructive/10', iconClass: 'text-destructive' },
   ];
 
   return (
