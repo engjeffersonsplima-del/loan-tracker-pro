@@ -18,6 +18,13 @@ function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+function formatDateBR(dateStr: string): string {
+  if (!dateStr) return '';
+  const iso = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  return new Date(dateStr).toLocaleDateString('pt-BR');
+}
+
 export function LoanList({ loans, onSelect, onEdit, filter, search, hidden }: LoanListProps) {
   let filtered = loans;
 
@@ -72,6 +79,9 @@ export function LoanList({ loans, onSelect, onEdit, filter, search, hidden }: Lo
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {hidden ? '••••••' : formatCurrency(loan.amount)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Solicitado em: {formatDateBR(loan.loanDate)}
                 </p>
                 <p className={`text-xs mt-0.5 ${overdueInterest > 0 ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
                   Juros em atraso: {hidden ? '••••••' : formatCurrency(overdueInterest)}
