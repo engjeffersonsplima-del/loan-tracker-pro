@@ -17,7 +17,7 @@ import { ScheduledMessageList } from '@/components/ScheduledMessageList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loan } from '@/types/loan';
-import { Plus, Home, List, Users, MessageCircle, Search, LogOut, DollarSign } from 'lucide-react';
+import { Plus, Home, List, Users, MessageCircle, Search, LogOut, DollarSign, Eye, EyeOff } from 'lucide-react';
 
 type View = 'dashboard' | 'loans' | 'customers' | 'messages' | 'new-loan' | 'loan-detail' | 'edit-loan' | 'new-customer' | 'edit-customer' | 'customer-detail' | 'new-message';
 
@@ -33,6 +33,7 @@ export default function Index() {
   const [filter, setFilter] = useState('todos');
   const [search, setSearch] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
+  const [valuesHidden, setValuesHidden] = useState(false);
 
   // Convert DB loans to the Loan type used by existing components
   const loans: Loan[] = dbLoans.map(l => ({
@@ -127,6 +128,15 @@ export default function Index() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setValuesHidden(h => !h)}
+                  className="rounded-xl text-muted-foreground"
+                  aria-label={valuesHidden ? 'Mostrar valores' : 'Ocultar valores'}
+                >
+                  {valuesHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
                 <Button size="icon" variant="ghost" onClick={signOut} className="rounded-xl text-muted-foreground">
                   <LogOut className="h-4 w-4" />
                 </Button>
@@ -136,16 +146,21 @@ export default function Index() {
               </div>
             </div>
 
-            <StatsCards {...stats} />
-            <GoalProgress target={currentMonthGoal.target} received={currentMonthReceived} />
-            <LoanChart totalReceived={stats.totalReceived} totalPending={stats.totalPending} />
+            <StatsCards {...stats} hidden={valuesHidden} />
+            <GoalProgress target={currentMonthGoal.target} received={currentMonthReceived} hidden={valuesHidden} />
+            <LoanChart
+              totalReceived={stats.totalReceived}
+              totalPending={stats.totalPending}
+              hidden={valuesHidden}
+              onToggleHidden={() => setValuesHidden(h => !h)}
+            />
 
             {overdueLoans.length > 0 && (
               <div>
                 <h3 className="text-xs font-semibold text-destructive mb-2 flex items-center gap-1.5 uppercase tracking-wider">
                   ⚠️ Atrasados ({overdueLoans.length})
                 </h3>
-                <LoanList loans={overdueLoans} onSelect={handleSelectLoan} />
+                <LoanList loans={overdueLoans} onSelect={handleSelectLoan} hidden={valuesHidden} />
               </div>
             )}
           </div>
@@ -155,9 +170,20 @@ export default function Index() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-foreground">Empréstimos</h2>
-              <Button size="icon" onClick={() => setView('new-loan')} className="rounded-xl shadow-sm">
-                <Plus className="h-5 w-5" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setValuesHidden(h => !h)}
+                  className="rounded-xl text-muted-foreground"
+                  aria-label={valuesHidden ? 'Mostrar valores' : 'Ocultar valores'}
+                >
+                  {valuesHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+                <Button size="icon" onClick={() => setView('new-loan')} className="rounded-xl shadow-sm">
+                  <Plus className="h-5 w-5" />
+                </Button>
+              </div>
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -170,7 +196,7 @@ export default function Index() {
                 </Button>
               ))}
             </div>
-            <LoanList loans={loans} onSelect={handleSelectLoan} onEdit={handleEditLoan} filter={filter} search={search} />
+            <LoanList loans={loans} onSelect={handleSelectLoan} onEdit={handleEditLoan} filter={filter} search={search} hidden={valuesHidden} />
           </div>
         )}
 
