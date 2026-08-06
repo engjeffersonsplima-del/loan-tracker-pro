@@ -37,7 +37,7 @@ export function CustomerList({ customers, onSelect, onEdit, search }: CustomerLi
         >
           <CardContent className="p-4 flex items-center gap-3">
             <Avatar className="w-10 h-10">
-              <AvatarImage src={customer.photo_url || undefined} />
+              <AvatarImage src={customer.photo_signed_url || undefined} />
               <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
                 {customer.name[0].toUpperCase()}
               </AvatarFallback>
