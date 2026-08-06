@@ -10,8 +10,26 @@ export interface Customer {
   rg: string | null;
   phone: string | null;
   photo_url: string | null;
+  photo_signed_url?: string | null;
   user_id: string;
   created_at: string;
+}
+
+const BUCKET = 'customer-photos';
+
+// Historical rows may contain a full public URL; extract the object path.
+function toStoragePath(value: string): string {
+  const marker = `/${BUCKET}/`;
+  const idx = value.indexOf(marker);
+  return idx >= 0 ? value.slice(idx + marker.length) : value;
+}
+
+async function signPhoto(value: string | null): Promise<string | null> {
+  if (!value) return null;
+  const { data } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(toStoragePath(value), 60 * 60);
+  return data?.signedUrl ?? null;
 }
 
 export function useCustomers() {
@@ -29,7 +47,11 @@ export function useCustomers() {
       toast.error('Erro ao carregar clientes');
       console.error(error);
     } else {
-      setCustomers(data || []);
+      const rows = data || [];
+      const withUrls = await Promise.all(
+        rows.map(async (c) => ({ ...c, photo_signed_url: await signPhoto(c.photo_url) }))
+      );
+      setCustomers(withUrls);
     }
     setLoading(false);
   }, [user]);
@@ -64,9 +86,10 @@ export function useCustomers() {
 
   const updateCustomer = useCallback(async (id: string, data: Partial<Customer>) => {
     if (!user) return;
+    const { photo_signed_url: _ignored, ...payload } = data;
     const { error } = await supabase
       .from('customers')
-      .update(data)
+      .update(payload)
       .eq('id', id);
     if (error) {
       toast.error('Erro ao atualizar cliente');
@@ -102,11 +125,10 @@ export function useCustomers() {
       console.error(error);
       return null;
     }
-    const { data: { publicUrl } } = supabase.storage
-      .from('customer-photos')
-      .getPublicUrl(path);
-    return publicUrl;
+    return path;
   }, [user]);
 
-  return { customers, loading, addCustomer, updateCustomer, deleteCustomer, uploadPhoto, refetch: fetchCustomers };
+  const resolvePhotoUrl = useCallback((value: string | null) => signPhoto(value), []);
+
+  return { customers, loading, addCustomer, updateCustomer, deleteCustomer, uploadPhoto, resolvePhotoUrl, refetch: fetchCustomers };
 }

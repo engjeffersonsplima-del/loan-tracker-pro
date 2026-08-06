@@ -22,7 +22,7 @@ import { Plus, Home, List, Users, MessageCircle, Search, LogOut, DollarSign, Eye
 type View = 'dashboard' | 'loans' | 'customers' | 'messages' | 'new-loan' | 'loan-detail' | 'edit-loan' | 'new-customer' | 'edit-customer' | 'customer-detail' | 'new-message';
 
 export default function Index() {
-  const { customers, addCustomer, updateCustomer, deleteCustomer, uploadPhoto, refetch: refetchCustomers } = useCustomers();
+  const { customers, addCustomer, updateCustomer, deleteCustomer, uploadPhoto, resolvePhotoUrl, refetch: refetchCustomers } = useCustomers();
   const { loans: dbLoans, stats, addLoan, updateLoan, deleteLoan, addPayment, markAsPaid, updateStatus, updateLoanDate, updatePayment, deletePayment, refetch: refetchLoans } = useLoansDB(refetchCustomers);
   const { messages, addMessage, toggleStatus, deleteMessage, sendWhatsApp } = useScheduledMessages();
   const { signOut } = useAuth();
@@ -257,7 +257,7 @@ export default function Index() {
         )}
 
         {view === 'new-customer' && (
-          <CustomerForm onSave={addCustomer} onUploadPhoto={uploadPhoto} onBack={() => setView('customers')} />
+          <CustomerForm onSave={addCustomer} onUploadPhoto={uploadPhoto} onResolvePhotoUrl={resolvePhotoUrl} onBack={() => setView('customers')} />
         )}
 
         {view === 'customer-detail' && selectedCustomer && (
@@ -275,6 +275,7 @@ export default function Index() {
           <CustomerForm
             onSave={handleUpdateCustomer}
             onUploadPhoto={uploadPhoto}
+            onResolvePhotoUrl={resolvePhotoUrl}
             onBack={() => setView('customer-detail')}
             initial={{
               name: selectedCustomer.name,

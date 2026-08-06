@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,20 +10,40 @@ import { toast } from 'sonner';
 interface CustomerFormProps {
   onSave: (data: { name: string; address?: string; rg?: string; phone?: string; photo_url?: string }) => Promise<any>;
   onUploadPhoto: (file: File) => Promise<string | null>;
+  onResolvePhotoUrl?: (value: string | null) => Promise<string | null>;
   onBack: () => void;
   initial?: { name: string; address?: string; rg?: string; phone?: string; photo_url?: string };
 }
 
-export function CustomerForm({ onSave, onUploadPhoto, onBack, initial }: CustomerFormProps) {
+export function CustomerForm({ onSave, onUploadPhoto, onResolvePhotoUrl, onBack, initial }: CustomerFormProps) {
   const [name, setName] = useState(initial?.name || '');
   const [address, setAddress] = useState(initial?.address || '');
   const [rg, setRg] = useState(initial?.rg || '');
   const [phone, setPhone] = useState(initial?.phone || '');
   const [photoUrl, setPhotoUrl] = useState(initial?.photo_url || '');
+  const [photoPreview, setPhotoPreview] = useState('');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!photoUrl) {
+      setPhotoPreview('');
+      return;
+    }
+    if (!onResolvePhotoUrl) {
+      setPhotoPreview(photoUrl);
+      return;
+    }
+    onResolvePhotoUrl(photoUrl).then((url) => {
+      if (active) setPhotoPreview(url || '');
+    });
+    return () => {
+      active = false;
+    };
+  }, [photoUrl, onResolvePhotoUrl]);
 
   const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -35,12 +55,12 @@ export function CustomerForm({ onSave, onUploadPhoto, onBack, initial }: Custome
   };
 
   const handleDownloadPhoto = async () => {
-    if (!photoUrl) {
+    if (!photoPreview) {
       toast.error('Nenhuma foto para baixar');
       return;
     }
     try {
-      const res = await fetch(photoUrl);
+      const res = await fetch(photoPreview);
       const blob = await res.blob();
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -101,7 +121,7 @@ export function CustomerForm({ onSave, onUploadPhoto, onBack, initial }: Custome
         <div className="flex justify-center">
           <div className="relative">
             <Avatar className="w-24 h-24 border-2 border-primary/20">
-              <AvatarImage src={photoUrl} />
+              <AvatarImage src={photoPreview} />
               <AvatarFallback className="bg-primary/10 text-primary text-2xl">
                 {name ? name[0].toUpperCase() : <User className="h-8 w-8" />}
               </AvatarFallback>
