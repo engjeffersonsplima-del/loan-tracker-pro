@@ -25,9 +25,10 @@ export function CustomerDetail({ customer, onBack, onDelete, onEdit, onWhatsApp,
   const [photoOpen, setPhotoOpen] = useState(false);
 
   const handleDownloadPhoto = async () => {
-    if (!customer.photo_url) return;
+    const photoSrc = customer.photo_signed_url;
+    if (!photoSrc) return;
     try {
-      const res = await fetch(customer.photo_url);
+      const res = await fetch(photoSrc);
       const blob = await res.blob();
       // Convert to JPG via canvas
       const img = new Image();
@@ -86,16 +87,16 @@ export function CustomerDetail({ customer, onBack, onDelete, onEdit, onWhatsApp,
       <div className="flex justify-center">
         <Avatar
           className="w-24 h-24 border-2 border-primary/20 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => customer.photo_url && setPhotoOpen(true)}
+          onClick={() => customer.photo_signed_url && setPhotoOpen(true)}
         >
-          <AvatarImage src={customer.photo_url || undefined} />
+          <AvatarImage src={customer.photo_signed_url || undefined} />
           <AvatarFallback className="bg-primary/10 text-primary text-3xl font-bold">
             {customer.name[0].toUpperCase()}
           </AvatarFallback>
         </Avatar>
       </div>
 
-      {customer.photo_url && (
+      {customer.photo_signed_url && (
         <div className="flex justify-center">
           <Button variant="outline" size="sm" onClick={handleDownloadPhoto} className="rounded-xl">
             <Download className="h-4 w-4 mr-2" />
@@ -106,10 +107,10 @@ export function CustomerDetail({ customer, onBack, onDelete, onEdit, onWhatsApp,
 
       <Dialog open={photoOpen} onOpenChange={setPhotoOpen}>
         <DialogContent className="max-w-sm p-2 bg-background">
-          {customer.photo_url && (
+          {customer.photo_signed_url && (
             <>
               <img
-                src={customer.photo_url}
+                src={customer.photo_signed_url}
                 alt={customer.name}
                 className="w-full h-auto rounded-lg object-contain max-h-[70vh]"
               />
