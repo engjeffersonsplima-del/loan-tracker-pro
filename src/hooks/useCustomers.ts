@@ -86,9 +86,10 @@ export function useCustomers() {
 
   const updateCustomer = useCallback(async (id: string, data: Partial<Customer>) => {
     if (!user) return;
+    const { photo_signed_url: _ignored, ...payload } = data;
     const { error } = await supabase
       .from('customers')
-      .update(data)
+      .update(payload)
       .eq('id', id);
     if (error) {
       toast.error('Erro ao atualizar cliente');
