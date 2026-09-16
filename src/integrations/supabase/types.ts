@@ -14,6 +14,183 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_pre_phase1_customers: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          id: string | null
+          name: string | null
+          phone: string | null
+          photo_url: string | null
+          rg: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          id?: string | null
+          name?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          rg?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          id?: string | null
+          name?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          rg?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_pre_phase1_loans: {
+        Row: {
+          amount: number | null
+          borrower_name: string | null
+          created_at: string | null
+          customer_id: string | null
+          cycle_period: string | null
+          due_date: string | null
+          id: string | null
+          indefinite_term: boolean | null
+          installments: number | null
+          interest_paid_this_month: boolean | null
+          interest_rate: number | null
+          interest_type: string | null
+          late_interest_rate: number | null
+          loan_date: string | null
+          loan_type: string | null
+          notes: string | null
+          payment_method: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          borrower_name?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          cycle_period?: string | null
+          due_date?: string | null
+          id?: string | null
+          indefinite_term?: boolean | null
+          installments?: number | null
+          interest_paid_this_month?: boolean | null
+          interest_rate?: number | null
+          interest_type?: string | null
+          late_interest_rate?: number | null
+          loan_date?: string | null
+          loan_type?: string | null
+          notes?: string | null
+          payment_method?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          borrower_name?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          cycle_period?: string | null
+          due_date?: string | null
+          id?: string | null
+          indefinite_term?: boolean | null
+          installments?: number | null
+          interest_paid_this_month?: boolean | null
+          interest_rate?: number | null
+          interest_type?: string | null
+          late_interest_rate?: number | null
+          loan_date?: string | null
+          loan_type?: string | null
+          notes?: string | null
+          payment_method?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_pre_phase1_payments: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          date: string | null
+          id: string | null
+          loan_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string | null
+          date?: string | null
+          id?: string | null
+          loan_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string | null
+          date?: string | null
+          id?: string | null
+          loan_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      audit_pre_phase1_scheduled_messages: {
+        Row: {
+          created_at: string | null
+          customer_id: string | null
+          id: string | null
+          last_sent_at: string | null
+          loan_id: string | null
+          message_text: string | null
+          next_send_at: string | null
+          phone: string | null
+          recurrence: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          customer_id?: string | null
+          id?: string | null
+          last_sent_at?: string | null
+          loan_id?: string | null
+          message_text?: string | null
+          next_send_at?: string | null
+          phone?: string | null
+          recurrence?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          customer_id?: string | null
+          id?: string | null
+          last_sent_at?: string | null
+          loan_id?: string | null
+          message_text?: string | null
+          next_send_at?: string | null
+          phone?: string | null
+          recurrence?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           address: string | null
